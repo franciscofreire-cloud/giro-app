@@ -43,23 +43,11 @@ export function Dashboard() {
       <div className="px-4 md:px-8 pt-6 pb-4 flex items-center justify-between gap-4">
         <div className="space-y-1">
           <p className="text-sm text-zinc-500">{greeting},</p>
-          <h1 className="text-xl md:text-2xl font-bold text-white truncate max-w-[150px] md:max-w-none">{settings.storeName} 👋</h1>
+          <h1 className="text-xl md:text-2xl font-bold text-white truncate">{settings.storeName} 👋</h1>
           <p className="text-xs text-zinc-600">
             {now.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
           </p>
         </div>
-        
-        {/* Quick action button moved to the top */}
-        <button onClick={() => navigate('/estoque/novo')}
-          className="rounded-xl md:rounded-2xl bg-gradient-to-r from-emerald-600 to-emerald-500 hover:from-emerald-500 hover:to-emerald-400 active:scale-[0.98] transition-all duration-200 px-3 py-2.5 md:px-4 md:py-3 flex items-center gap-2 md:gap-3 group shadow-md shadow-emerald-500/10 shrink-0">
-          <div className="text-left">
-            <p className="text-xs md:text-sm font-bold text-white leading-none">Novo Item</p>
-            <p className="hidden md:block text-[10px] text-emerald-100/70 mt-1 leading-none">Registrar compra</p>
-          </div>
-          <div className="w-5 h-5 md:w-6 md:h-6 rounded-full bg-white/20 flex items-center justify-center group-hover:bg-white/30 transition-colors shrink-0">
-            <ChevronRight size={12} className="text-white" />
-          </div>
-        </button>
       </div>
 
       {/* KPI Cards — 3 cols mobile & desktop */}
