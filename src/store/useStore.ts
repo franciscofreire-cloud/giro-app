@@ -64,10 +64,15 @@ export const useStore = create<StoreState>()(
             supabase.from('sales').select('*').order('created_at', { ascending: false }),
           ]);
 
-          // Handle possible errors
-          if (settingsRes.error) console.error('Erro settings:', settingsRes.error);
-          if (itemsRes.error) console.error('Erro items:', itemsRes.error);
-          if (salesRes.error) console.error('Erro sales:', salesRes.error);
+          // Handle possible errors (e.g. tables do not exist yet)
+          if (settingsRes.error || itemsRes.error || salesRes.error) {
+            console.warn('⚠️ Tabelas do Supabase não encontradas ou inacessíveis. Mantendo os dados locais.');
+            if (settingsRes.error) console.error('Erro settings:', settingsRes.error);
+            if (itemsRes.error) console.error('Erro items:', itemsRes.error);
+            if (salesRes.error) console.error('Erro sales:', salesRes.error);
+            set({ loading: false });
+            return;
+          }
 
           // Map settings
           const settingsObj = { ...DEFAULT_SETTINGS };
