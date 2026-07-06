@@ -9,7 +9,8 @@ import { CONDITION_LABELS, DELIVERY_LABELS } from '@/types';
 const categoryEmoji: Record<string, string> = {
   'Eletrônicos': '📱', 'Roupas': '👕', 'Móveis': '🪑',
   'Acessórios': '⌚', 'Calçados': '👟', 'Eletrodomésticos': '🔌',
-  'Livros': '📚', 'Esportes': '⚽', 'Brinquedos': '🧸', 'Outros': '📦',
+  'Livros': '📚', 'Esportes': '⚽', 'Brinquedos': '🧸',
+  'Ferramentas': '🛠️', 'Outros': '📦',
 };
 
 export function ItemDetail() {

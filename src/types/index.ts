@@ -71,6 +71,7 @@ export const CATEGORIES = [
   'Livros',
   'Esportes',
   'Brinquedos',
+  'Ferramentas',
   'Outros',
 ] as const;
 

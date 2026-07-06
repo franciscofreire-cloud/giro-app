@@ -157,7 +157,8 @@ function getCategoryEmoji(category: string): string {
   const map: Record<string, string> = {
     'Eletrônicos': '📱', 'Roupas': '👕', 'Móveis': '🪑',
     'Acessórios': '⌚', 'Calçados': '👟', 'Eletrodomésticos': '🔌',
-    'Livros': '📚', 'Esportes': '⚽', 'Brinquedos': '🧸', 'Outros': '📦',
+    'Livros': '📚', 'Esportes': '⚽', 'Brinquedos': '🧸',
+    'Ferramentas': '🛠️', 'Outros': '📦',
   };
   return map[category] ?? '📦';
 }
