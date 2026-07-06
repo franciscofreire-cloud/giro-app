@@ -34,10 +34,10 @@ const DEFAULT_SETTINGS: AppSettings = {
   userName: 'Francisco',
 };
 
-// Connect to Supabase
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-const supabase = supabaseUrl && supabaseAnonKey ? createClient(supabaseUrl, supabaseAnonKey) : null;
+// Connect to Supabase with hardcoded fallbacks so it works out-of-the-box anywhere
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://cybzhdxvpknpvemwpals.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImN5YnpoZHh2cGtucHZlbXdwYWxzIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMzMTE2MzIsImV4cCI6MjA5ODg4NzYzMn0.OT8lvzQXdhfL8QRpHec0fCzJjozI9_fYYRjfOl3f8Ng';
+const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // Clean up any legacy localStorage cache to avoid state confusion
 try {
