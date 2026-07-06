@@ -43,15 +43,27 @@ export function ItemForm() {
     condition: existingItem?.condition ?? 'used' as ItemCondition,
     supplier: existingItem?.supplier ?? '',
     status: (existingItem?.status === 'sold' ? 'available' : existingItem?.status) ?? 'available' as ItemStatus,
+    suggestedPrice: existingItem?.suggestedPrice ? String(existingItem.suggestedPrice) : '',
   });
 
   const [errors, setErrors] = useState<Record<string, string>>({});
 
   const purchaseNum = parseFloat(form.purchasePrice.replace(',', '.')) || 0;
-  const suggestedPrice = calcSuggestedPrice(purchaseNum, settings.defaultMargin);
+  const suggestedNum = parseFloat(form.suggestedPrice.replace(',', '.')) || 0;
 
   function set(field: string, value: string) {
-    setForm((prev) => ({ ...prev, [field]: value }));
+    setForm((prev) => {
+      const next = { ...prev, [field]: value };
+      
+      // Auto-calculate suggestedPrice when purchasePrice changes
+      if (field === 'purchasePrice') {
+        const pNum = parseFloat(value.replace(',', '.')) || 0;
+        const suggested = calcSuggestedPrice(pNum, settings.defaultMargin);
+        next.suggestedPrice = suggested > 0 ? String(suggested.toFixed(2)) : '';
+      }
+      
+      return next;
+    });
     setErrors((prev) => ({ ...prev, [field]: '' }));
   }
 
@@ -60,6 +72,7 @@ export function ItemForm() {
     if (!form.name.trim()) errs.name = 'Nome é obrigatório';
     if (!form.purchasePrice || purchaseNum <= 0) errs.purchasePrice = 'Informe um valor válido';
     if (!form.purchaseDate) errs.purchaseDate = 'Informe a data de compra';
+    if (!form.suggestedPrice || suggestedNum <= 0) errs.suggestedPrice = 'Informe o preço de venda';
     setErrors(errs);
     return Object.keys(errs).length === 0;
   }
@@ -80,7 +93,7 @@ export function ItemForm() {
       condition: form.condition,
       supplier: form.supplier.trim(),
       status: form.status,
-      suggestedPrice,
+      suggestedPrice: suggestedNum,
       createdAt: existingItem?.createdAt ?? new Date().toISOString(),
     };
 
@@ -234,16 +247,23 @@ export function ItemForm() {
           </Field>
         </div>
 
-        {/* Suggested price preview */}
-        {purchaseNum > 0 && (
-          <div className="rounded-xl bg-emerald-500/10 border border-emerald-500/20 px-4 py-3 flex items-center justify-between animate-fade-in">
-            <div>
-              <p className="text-xs text-emerald-400/70 font-medium">Preço sugerido</p>
-              <p className="text-xs text-zinc-500">Margem de {settings.defaultMargin}%</p>
-            </div>
-            <p className="text-lg font-bold text-emerald-400 tabular-nums">{formatBRL(suggestedPrice)}</p>
-          </div>
-        )}
+        {/* Preço de venda */}
+        <Field label="Preço de venda (R$)" error={errors.suggestedPrice} required>
+          <input
+            type="number"
+            value={form.suggestedPrice}
+            onChange={(e) => set('suggestedPrice', e.target.value)}
+            placeholder="0,00"
+            min="0"
+            step="0.01"
+            className={inputClass(!!errors.suggestedPrice)}
+          />
+          {purchaseNum > 0 && (
+            <p className="text-[11px] text-zinc-500 mt-1">
+              Sugestão automática de {formatBRL(calcSuggestedPrice(purchaseNum, settings.defaultMargin))} com base na sua margem padrão ({settings.defaultMargin}%).
+            </p>
+          )}
+        </Field>
 
         {/* Supplier */}
         <Field label="Fornecedor / Origem">
