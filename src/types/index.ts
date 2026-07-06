@@ -1,5 +1,5 @@
 // ─── Item ────────────────────────────────────────────────────────────────────
-export type ItemStatus = 'available' | 'reserved' | 'sold';
+export type ItemStatus = 'available' | 'reserved' | 'sold' | 'awaiting';
 export type ItemCondition = 'new' | 'like-new' | 'used';
 
 export interface Item {
@@ -85,6 +85,7 @@ export const STATUS_LABELS: Record<ItemStatus, string> = {
   available: 'Disponível',
   reserved: 'Reservado',
   sold: 'Vendido',
+  awaiting: 'Aguardando entrega',
 };
 
 export const PAYMENT_LABELS: Record<PaymentMethod, string> = {

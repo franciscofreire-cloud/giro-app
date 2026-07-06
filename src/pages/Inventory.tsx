@@ -12,6 +12,7 @@ const STATUS_FILTERS: { label: string; value: ItemStatus | 'all' }[] = [
   { label: 'Todos', value: 'all' },
   { label: 'Disponível', value: 'available' },
   { label: 'Reservado', value: 'reserved' },
+  { label: 'Aguardando', value: 'awaiting' },
 ];
 
 export function Inventory() {
@@ -37,12 +38,13 @@ export function Inventory() {
 
   const availableCount = items.filter(i => i.status === 'available').length;
   const reservedCount = items.filter(i => i.status === 'reserved').length;
+  const awaitingCount = items.filter(i => i.status === 'awaiting').length;
 
   return (
     <div className="flex flex-col min-h-full pb-24 md:pb-6">
       <TopBar
         title="Estoque"
-        subtitle={`${availableCount} disponível · ${reservedCount} reservado`}
+        subtitle={`${availableCount} disponível · ${reservedCount} reservado · ${awaitingCount} aguardando`}
         right={
           <div className="flex items-center gap-2">
             <button

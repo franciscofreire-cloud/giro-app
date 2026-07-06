@@ -16,6 +16,7 @@ const CONDITIONS: { label: string; value: ItemCondition }[] = [
 const STATUSES: { label: string; value: ItemStatus }[] = [
   { label: 'Disponível', value: 'available' },
   { label: 'Reservado', value: 'reserved' },
+  { label: 'Aguardando entrega', value: 'awaiting' },
 ];
 
 export function ItemForm() {
@@ -257,18 +258,20 @@ export function ItemForm() {
 
         {/* Status */}
         <Field label="Status">
-          <div className="flex gap-2">
+          <div className="flex gap-2 flex-wrap">
             {STATUSES.map(({ label, value }) => (
               <button
                 key={value}
                 type="button"
                 onClick={() => set('status', value)}
                 className={cn(
-                  'flex-1 py-2.5 rounded-xl text-sm font-medium border transition-all',
+                  'flex-1 py-2.5 rounded-xl text-sm font-medium border transition-all min-w-[100px]',
                   form.status === value
                     ? value === 'available'
                       ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40'
-                      : 'bg-amber-500/20 text-amber-400 border-amber-500/40'
+                      : value === 'awaiting'
+                        ? 'bg-blue-500/20 text-blue-400 border-blue-500/40'
+                        : 'bg-amber-500/20 text-amber-400 border-amber-500/40'
                     : 'bg-zinc-800 text-zinc-400 border-zinc-700'
                 )}
               >

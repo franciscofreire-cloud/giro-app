@@ -16,7 +16,7 @@ export function useDashboard() {
     .reduce((acc, i) => acc + i.purchasePrice, 0);
 
   const stockCount = items.filter(
-    (i) => i.status === 'available' || i.status === 'reserved'
+    (i) => i.status === 'available' || i.status === 'reserved' || i.status === 'awaiting'
   ).length;
 
   const monthlySales = sales.filter((s) => {

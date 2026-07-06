@@ -54,7 +54,7 @@ export function Dashboard() {
       <div className="px-4 md:px-8 grid grid-cols-3 gap-2 md:gap-4 mb-6">
         <StatCard label="Lucro do Mês" value={formatBRL(monthlyProfit)} sub="Mês atual"
           icon={<TrendingUp size={18} />} variant={monthlyProfit >= 0 ? 'profit' : 'loss'} delay={0} />
-        <StatCard label="Itens em Estoque" value={String(stockCount)} sub="Disponíveis + Reservados"
+        <StatCard label="Itens em Estoque" value={String(stockCount)} sub="Total em estoque"
           icon={<Package size={18} />} variant="blue" delay={60} />
         <StatCard label="Faturamento" value={formatBRL(monthlyRevenue)} sub="Mês atual"
           icon={<ShoppingBag size={18} />} variant="default" delay={120} />

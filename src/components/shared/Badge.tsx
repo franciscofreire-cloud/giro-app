@@ -20,6 +20,10 @@ const statusConfig: Record<ItemStatus, { label: string; className: string }> = {
     label: 'Vendido',
     className: 'bg-zinc-700/60 text-zinc-400 border-zinc-600/30',
   },
+  awaiting: {
+    label: 'Aguardando entrega',
+    className: 'bg-blue-500/20 text-blue-400 border-blue-500/30',
+  },
 };
 
 export function StatusBadge({ status, className }: StatusBadgeProps) {
