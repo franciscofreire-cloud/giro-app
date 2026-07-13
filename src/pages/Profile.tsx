@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { User, Store, Percent, Trash2, ChevronRight, TrendingUp, Package, ShoppingBag, AlertTriangle } from 'lucide-react';
+import { User, Store, Percent, Trash2, ChevronRight, TrendingUp, Package, ShoppingBag, AlertTriangle, Mail, KeyRound, LogOut } from 'lucide-react';
 import { useStore } from '@/store/useStore';
 import { TopBar } from '@/components/layout/TopBar';
 import { formatBRL } from '@/lib/utils';
@@ -11,14 +11,22 @@ export function Profile() {
   const resetData = useStore((s) => s.resetData);
   const items = useStore((s) => s.items);
   const sales = useStore((s) => s.sales);
+  const currentUser = useStore((s) => s.currentUser);
+  const logout = useStore((s) => s.logout);
+  const updatePassword = useStore((s) => s.updatePassword);
 
   const [editingMargin, setEditingMargin] = useState(false);
   const [editingName, setEditingName] = useState(false);
   const [editingUser, setEditingUser] = useState(false);
+  const [editingPassword, setEditingPassword] = useState(false);
 
   const [marginVal, setMarginVal] = useState(String(settings.defaultMargin));
   const [nameVal, setNameVal] = useState(settings.storeName);
   const [userVal, setUserVal] = useState(settings.userName);
+  const [newPassVal, setNewPassVal] = useState('');
+  const [confirmPassVal, setConfirmPassVal] = useState('');
+  const [passError, setPassError] = useState('');
+  const [passSuccess, setPassSuccess] = useState('');
 
   const totalProfit = sales.reduce((acc, s) => acc + s.profit, 0);
   const totalRevenue = sales.reduce((acc, s) => acc + s.salePrice, 0);
@@ -29,6 +37,12 @@ export function Profile() {
   function handleReset() {
     if (confirm('Resetar todos os dados para o estado inicial? Esta ação não pode ser desfeita.')) {
       resetData();
+    }
+  }
+
+  function handleLogout() {
+    if (confirm('Tem certeza que deseja sair da conta?')) {
+      logout();
     }
   }
 
@@ -133,6 +147,98 @@ export function Profile() {
               <span className="text-sm text-zinc-400">%</span>
             </div>
           </SettingRow>
+        </div>
+
+        {/* Conta & Segurança */}
+        <div className="rounded-2xl bg-zinc-900 border border-zinc-800 overflow-hidden divide-y divide-zinc-800">
+          <p className="px-4 pt-3 pb-2 text-xs font-semibold text-zinc-500 uppercase tracking-wider">Conta & Segurança</p>
+          
+          {/* Email conectado */}
+          <div className="px-4 py-3 flex items-center gap-3">
+            <Mail size={16} className="text-zinc-400" />
+            <div className="flex-1">
+              <p className="text-xs text-zinc-500">E-mail conectado</p>
+              <p className="text-sm font-medium text-white">{currentUser?.email}</p>
+            </div>
+            <span className="text-[10px] bg-emerald-500/10 text-emerald-400 px-2.5 py-0.5 rounded-full font-bold uppercase tracking-wide border border-emerald-500/15">
+              {currentUser?.role || 'Admin'}
+            </span>
+          </div>
+
+          {/* Senha da conta */}
+          <SettingRow
+            icon={<KeyRound size={16} className="text-zinc-400" />}
+            label="Senha da conta"
+            value="••••••••"
+            editing={editingPassword}
+            onEdit={() => {
+              setEditingPassword(true);
+              setNewPassVal('');
+              setConfirmPassVal('');
+              setPassError('');
+              setPassSuccess('');
+            }}
+            onSave={async () => {
+              if (!newPassVal || !confirmPassVal) {
+                setPassError('Preencha os campos de senha.');
+                return;
+              }
+              if (newPassVal.length < 6) {
+                setPassError('A senha deve ter pelo menos 6 caracteres.');
+                return;
+              }
+              if (newPassVal !== confirmPassVal) {
+                setPassError('As senhas não coincidem.');
+                return;
+              }
+              if (currentUser) {
+                const success = await updatePassword(currentUser.email, newPassVal);
+                if (success) {
+                  setPassSuccess('Senha atualizada com sucesso!');
+                  setPassError('');
+                  setTimeout(() => {
+                    setEditingPassword(false);
+                    setPassSuccess('');
+                  }, 1500);
+                } else {
+                  setPassError('Erro ao atualizar a senha no banco.');
+                }
+              }
+            }}
+            onCancel={() => setEditingPassword(false)}
+          >
+            <div className="space-y-2">
+              <input
+                type="password"
+                placeholder="Nova senha (mín. 6 caracteres)"
+                value={newPassVal}
+                onChange={(e) => setNewPassVal(e.target.value)}
+                autoFocus
+                className="w-full bg-zinc-800 border border-emerald-500/50 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none"
+              />
+              <input
+                type="password"
+                placeholder="Confirme a nova senha"
+                value={confirmPassVal}
+                onChange={(e) => setConfirmPassVal(e.target.value)}
+                className="w-full bg-zinc-800 border border-emerald-500/50 rounded-lg px-3 py-1.5 text-sm text-white focus:outline-none"
+              />
+              {passError && <p className="text-[11px] text-rose-400 font-medium">{passError}</p>}
+              {passSuccess && <p className="text-[11px] text-emerald-400 font-medium">{passSuccess}</p>}
+            </div>
+          </SettingRow>
+
+          {/* Botão de Logout */}
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 px-4 py-3 hover:bg-zinc-800/40 transition-colors text-left"
+          >
+            <LogOut size={16} className="text-rose-400" />
+            <div>
+              <p className="text-sm font-semibold text-rose-400">Sair da Conta</p>
+              <p className="text-xs text-zinc-500">Encerrar a sessão neste dispositivo</p>
+            </div>
+          </button>
         </div>
 
         {/* Danger zone */}

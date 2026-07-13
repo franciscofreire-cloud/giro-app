@@ -11,10 +11,12 @@ import { Reports } from '@/pages/Reports';
 import { Profile } from '@/pages/Profile';
 import { useStore } from '@/store/useStore';
 import { Loader2 } from 'lucide-react';
+import { Login } from '@/pages/Login';
 
 export default function App() {
   const loadData = useStore((s) => s.loadData);
   const loading = useStore((s) => s.loading);
+  const currentUser = useStore((s) => s.currentUser);
 
   useEffect(() => {
     loadData();
@@ -31,6 +33,11 @@ export default function App() {
       </div>
     );
   }
+
+  if (!currentUser) {
+    return <Login />;
+  }
+
 
   return (
     <BrowserRouter>

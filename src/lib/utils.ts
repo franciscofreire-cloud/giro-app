@@ -70,6 +70,15 @@ export function generateId(): string {
   return crypto.randomUUID();
 }
 
+// ─── Cryptography ─────────────────────────────────────────────────────────────
+export async function hashSHA256(message: string): Promise<string> {
+  const msgBuffer = new TextEncoder().encode(message);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+
 // ─── Month labels ────────────────────────────────────────────────────────────
 export const MONTH_SHORT = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
 

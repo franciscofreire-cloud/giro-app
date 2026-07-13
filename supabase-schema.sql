@@ -67,5 +67,37 @@ INSERT INTO settings (key, value)
 VALUES 
   ('defaultMargin', '50'),
   ('storeName', 'Minha Loja'),
-  ('userName', 'Francisco')
+  ('userName', 'Francisco'),
+  -- Inicializa o usuário administrador principal (senha padrão: giro123)
+  ('user_gilbertofreire624@gmail.com', '{"email":"gilbertofreire624@gmail.com","role":"admin","passwordHash":"953503f8e02d99d3e8ad4a6ff417038e3e4a29a4a7541ef4177d6ad8565a9e33"}')
 ON CONFLICT (key) DO NOTHING;
+
+
+-- ─── TABELA DE USUÁRIOS (OPCIONAL/FUTURA) ──────────────────────────────────────
+-- Esta tabela é opcional porque as credenciais já rodam de forma auto-suficiente
+-- na tabela 'settings' para evitar erros de migração na inicialização.
+-- Caso queira organizar futuramente, você pode executar o bloco abaixo:
+/*
+CREATE TABLE IF NOT EXISTS users (
+  id TEXT PRIMARY KEY,
+  email TEXT NOT NULL UNIQUE,
+  password TEXT NOT NULL,
+  role TEXT NOT NULL DEFAULT 'user',
+  created_at TEXT NOT NULL
+);
+
+ALTER TABLE users ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Acesso público completo para users" ON users 
+  FOR ALL USING (true) WITH CHECK (true);
+
+INSERT INTO users (id, email, password, role, created_at)
+VALUES (
+  'admin-default-id', 
+  'gilbertofreire624@gmail.com', 
+  '953503f8e02d99d3e8ad4a6ff417038e3e4a29a4a7541ef4177d6ad8565a9e33', -- giro123
+  'admin', 
+  '2026-07-13T09:10:00-03:00'
+) ON CONFLICT (email) DO NOTHING;
+*/
+

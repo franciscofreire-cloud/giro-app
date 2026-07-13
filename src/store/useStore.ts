@@ -1,6 +1,7 @@
 import { create } from 'zustand';
-import { Item, Sale, AppSettings } from '@/types';
+import { Item, Sale, AppSettings, User, UserSession } from '@/types';
 import { createClient } from '@supabase/supabase-js';
+import { hashSHA256 } from '@/lib/utils';
 
 interface StoreState {
   items: Item[];
@@ -9,8 +10,17 @@ interface StoreState {
   loading: boolean;
   dbConnected: boolean;
 
+  // Auth State
+  currentUser: UserSession | null;
+  users: Record<string, User>;
+
   // Lifecycle
   loadData: () => Promise<void>;
+
+  // Auth actions
+  login: (email: string, passwordPlain: string) => Promise<boolean>;
+  logout: () => Promise<void>;
+  updatePassword: (email: string, newPasswordPlain: string) => Promise<boolean>;
 
   // Item actions
   addItem: (item: Item) => Promise<void>;
@@ -52,6 +62,15 @@ export const useStore = create<StoreState>()((set, get) => ({
   settings: DEFAULT_SETTINGS,
   loading: false,
   dbConnected: !!supabase,
+  currentUser: (() => {
+    try {
+      const cached = localStorage.getItem('giro_user_session');
+      return cached ? JSON.parse(cached) : null;
+    } catch (e) {
+      return null;
+    }
+  })(),
+  users: {},
 
   loadData: async () => {
     if (!supabase) {
@@ -77,14 +96,40 @@ export const useStore = create<StoreState>()((set, get) => ({
         return;
       }
 
-      // Map settings
+      // Map settings & users
       const settingsObj = { ...DEFAULT_SETTINGS };
+      const users: Record<string, User> = {};
       if (settingsRes.data) {
         settingsRes.data.forEach((row: any) => {
           if (row.key === 'defaultMargin') settingsObj.defaultMargin = parseFloat(row.value) || 50;
           if (row.key === 'storeName') settingsObj.storeName = row.value;
           if (row.key === 'userName') settingsObj.userName = row.value;
+          
+          if (row.key.startsWith('user_')) {
+            try {
+              const uData = JSON.parse(row.value);
+              users[uData.email] = uData;
+            } catch (e) {
+              console.error('Erro parse user:', e);
+            }
+          }
         });
+      }
+
+      // Garantir existência do administrador padrão
+      const adminEmail = 'gilbertofreire624@gmail.com';
+      if (!users[adminEmail]) {
+        const adminUser: User = {
+          email: adminEmail,
+          role: 'admin',
+          passwordHash: '953503f8e02d99d3e8ad4a6ff417038e3e4a29a4a7541ef4177d6ad8565a9e33', // giro123
+        };
+        users[adminEmail] = adminUser;
+        await supabase.from('settings').upsert({
+          key: `user_${adminEmail}`,
+          value: JSON.stringify(adminUser),
+        });
+        console.log('✅ Usuário administrador padrão inicializado.');
       }
 
       // Map items
@@ -122,7 +167,25 @@ export const useStore = create<StoreState>()((set, get) => ({
         photoUrl: sale.photo_url || '',
       }));
 
-      set({ items, sales, settings: settingsObj, loading: false });
+      // Recarregar sessão do localStorage e verificar se o usuário ainda existe
+      let currentUser = get().currentUser;
+      const cachedSession = localStorage.getItem('giro_user_session');
+      if (cachedSession) {
+        try {
+          const session = JSON.parse(cachedSession);
+          if (users[session.email]) {
+            currentUser = session;
+          } else {
+            currentUser = null;
+            localStorage.removeItem('giro_user_session');
+          }
+        } catch (e) {
+          currentUser = null;
+          localStorage.removeItem('giro_user_session');
+        }
+      }
+
+      set({ items, sales, settings: settingsObj, users, currentUser, loading: false });
       console.log('✅ Dados carregados com sucesso do Supabase!');
     } catch (error) {
       console.error('Erro ao conectar com Supabase:', error);
@@ -350,6 +413,52 @@ export const useStore = create<StoreState>()((set, get) => ({
       // Rollback
       set({ items: previousItems, sales: previousSales, settings: previousSettings });
       alert('Erro ao limpar os dados no banco de dados.');
+    }
+  },
+
+  login: async (email, passwordPlain) => {
+    const users = get().users;
+    const user = users[email];
+    if (!user) return false;
+
+    const hash = await hashSHA256(passwordPlain);
+    if (user.passwordHash === hash) {
+      const session: UserSession = { email: user.email, role: user.role };
+      set({ currentUser: session });
+      localStorage.setItem('giro_user_session', JSON.stringify(session));
+      return true;
+    }
+    return false;
+  },
+
+  logout: async () => {
+    set({ currentUser: null });
+    localStorage.removeItem('giro_user_session');
+  },
+
+  updatePassword: async (email, newPasswordPlain) => {
+    const users = { ...get().users };
+    const user = users[email];
+    if (!user) return false;
+
+    const newHash = await hashSHA256(newPasswordPlain);
+    const updatedUser: User = { ...user, passwordHash: newHash };
+    
+    users[email] = updatedUser;
+    
+    try {
+      if (supabase) {
+        const { error } = await supabase.from('settings').upsert({
+          key: `user_${email}`,
+          value: JSON.stringify(updatedUser),
+        });
+        if (error) throw error;
+      }
+      set({ users });
+      return true;
+    } catch (e) {
+      console.error('Erro ao atualizar senha no Supabase:', e);
+      return false;
     }
   },
 }));

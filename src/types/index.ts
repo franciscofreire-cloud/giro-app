@@ -46,6 +46,18 @@ export interface AppSettings {
   userName: string;
 }
 
+// ─── User & Authentication ───────────────────────────────────────────────────
+export interface User {
+  email: string;
+  role: 'admin' | 'user';
+  passwordHash: string;
+}
+
+export interface UserSession {
+  email: string;
+  role: 'admin' | 'user';
+}
+
 // ─── Dashboard ───────────────────────────────────────────────────────────────
 export interface MonthlyProfit {
   month: string;   // "Jan", "Fev", etc.
