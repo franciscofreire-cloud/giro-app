@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Item, Sale, AppSettings, User, UserSession } from '@/types';
+import { Item, Sale, AppSettings, User, UserSession, InstallmentPurchase } from '@/types';
 import { createClient } from '@supabase/supabase-js';
 import { hashSHA256 } from '@/lib/utils';
 
@@ -14,6 +14,9 @@ interface StoreState {
   currentUser: UserSession | null;
   users: Record<string, User>;
 
+  // Installments State
+  installmentPurchases: InstallmentPurchase[];
+
   // Lifecycle
   loadData: () => Promise<void>;
 
@@ -21,6 +24,11 @@ interface StoreState {
   login: (email: string, passwordPlain: string) => Promise<boolean>;
   logout: () => Promise<void>;
   updatePassword: (email: string, newPasswordPlain: string) => Promise<boolean>;
+
+  // Installment actions
+  addInstallmentPurchase: (purchase: InstallmentPurchase) => Promise<void>;
+  deleteInstallmentPurchase: (id: string) => Promise<void>;
+  toggleInstallmentPayment: (purchaseId: string, paymentId: string) => Promise<void>;
 
   // Item actions
   addItem: (item: Item) => Promise<void>;
@@ -71,6 +79,7 @@ export const useStore = create<StoreState>()((set, get) => ({
     }
   })(),
   users: {},
+  installmentPurchases: [],
 
   loadData: async () => {
     if (!supabase) {
@@ -96,15 +105,25 @@ export const useStore = create<StoreState>()((set, get) => ({
         return;
       }
 
-      // Map settings & users
+      // Map settings & users & installments
       const settingsObj = { ...DEFAULT_SETTINGS };
       const users: Record<string, User> = {};
+      let installmentPurchases: InstallmentPurchase[] = [];
+
       if (settingsRes.data) {
         settingsRes.data.forEach((row: any) => {
           if (row.key === 'defaultMargin') settingsObj.defaultMargin = parseFloat(row.value) || 50;
           if (row.key === 'storeName') settingsObj.storeName = row.value;
           if (row.key === 'userName') settingsObj.userName = row.value;
           
+          if (row.key === 'installment_purchases') {
+            try {
+              installmentPurchases = JSON.parse(row.value);
+            } catch (e) {
+              console.error('Erro ao ler parcelamentos:', e);
+            }
+          }
+
           if (row.key.startsWith('user_')) {
             try {
               const uData = JSON.parse(row.value);
@@ -185,7 +204,7 @@ export const useStore = create<StoreState>()((set, get) => ({
         }
       }
 
-      set({ items, sales, settings: settingsObj, users, currentUser, loading: false });
+      set({ items, sales, settings: settingsObj, users, currentUser, installmentPurchases, loading: false });
       console.log('✅ Dados carregados com sucesso do Supabase!');
     } catch (error) {
       console.error('Erro ao conectar com Supabase:', error);
@@ -459,6 +478,70 @@ export const useStore = create<StoreState>()((set, get) => ({
     } catch (e) {
       console.error('Erro ao atualizar senha no Supabase:', e);
       return false;
+    }
+  },
+
+  addInstallmentPurchase: async (purchase) => {
+    const previous = get().installmentPurchases;
+    const updated = [purchase, ...previous];
+    set({ installmentPurchases: updated });
+    try {
+      if (supabase) {
+        await supabase.from('settings').upsert({
+          key: 'installment_purchases',
+          value: JSON.stringify(updated),
+        });
+      }
+    } catch (e) {
+      console.error('Erro ao salvar parcelamento:', e);
+      set({ installmentPurchases: previous });
+    }
+  },
+
+  deleteInstallmentPurchase: async (id) => {
+    const previous = get().installmentPurchases;
+    const updated = previous.filter((p) => p.id !== id);
+    set({ installmentPurchases: updated });
+    try {
+      if (supabase) {
+        await supabase.from('settings').upsert({
+          key: 'installment_purchases',
+          value: JSON.stringify(updated),
+        });
+      }
+    } catch (e) {
+      console.error('Erro ao deletar parcelamento:', e);
+      set({ installmentPurchases: previous });
+    }
+  },
+
+  toggleInstallmentPayment: async (purchaseId, paymentId) => {
+    const previous = get().installmentPurchases;
+    const updated = previous.map((p) => {
+      if (p.id !== purchaseId) return p;
+      const updatedPayments = p.payments.map((pmt) => {
+        if (pmt.id !== paymentId) return pmt;
+        const newPaid = !pmt.paid;
+        return {
+          ...pmt,
+          paid: newPaid,
+          paidDate: newPaid ? new Date().toISOString().split('T')[0] : undefined,
+        };
+      });
+      return { ...p, payments: updatedPayments };
+    });
+
+    set({ installmentPurchases: updated });
+    try {
+      if (supabase) {
+        await supabase.from('settings').upsert({
+          key: 'installment_purchases',
+          value: JSON.stringify(updated),
+        });
+      }
+    } catch (e) {
+      console.error('Erro ao atualizar parcela:', e);
+      set({ installmentPurchases: previous });
     }
   },
 }));

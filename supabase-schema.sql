@@ -101,3 +101,9 @@ VALUES (
 ) ON CONFLICT (email) DO NOTHING;
 */
 
+-- ─── ITENS PARCELADOS ────────────────────────────────────────────────────────
+-- Os itens parcelados são salvos automaticamente de forma reativa na tabela 'settings'
+-- sob a chave 'installment_purchases', contendo a lista completa de compras parceladas,
+-- valor total, valor de cada parcela, vencimentos mensais e status de baixa (paga/pendente).
+
+

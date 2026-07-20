@@ -9,6 +9,7 @@ import { Sales } from '@/pages/Sales';
 import { SaleForm } from '@/pages/SaleForm';
 import { Reports } from '@/pages/Reports';
 import { Profile } from '@/pages/Profile';
+import { Installments } from '@/pages/Installments';
 import { useStore } from '@/store/useStore';
 import { Loader2 } from 'lucide-react';
 import { Login } from '@/pages/Login';
@@ -59,6 +60,7 @@ export default function App() {
                 <Route path="/estoque/:id/editar" element={<ItemForm />} />
                 <Route path="/vendas" element={<Sales />} />
                 <Route path="/vendas/nova" element={<SaleForm />} />
+                <Route path="/parcelados" element={<Installments />} />
                 <Route path="/relatorios" element={<Reports />} />
                 <Route path="/perfil" element={<Profile />} />
                 <Route path="*" element={<Navigate to="/" replace />} />

@@ -114,3 +114,31 @@ export const DELIVERY_LABELS: Record<DeliveryMethod, string> = {
   delivery_uber: 'Entrega por Uber Moto',
   pickup_uber: 'Retirada por Uber Moto',
 };
+
+// ─── Installments (Compras Parceladas) ────────────────────────────────────────
+export interface InstallmentPayment {
+  id: string;
+  number: number;
+  dueDate: string;       // YYYY-MM-DD
+  amount: number;
+  paid: boolean;
+  paidDate?: string;
+}
+
+export interface InstallmentPurchase {
+  id: string;
+  itemId: string;        // Referência ao item selecionado
+  itemName: string;
+  itemCategory: string;
+  itemPhotoUrl?: string;
+  itemStatus: ItemStatus;
+  totalPrice: number;
+  installmentsCount: number;
+  installmentValue: number;
+  dueDay: number;        // Dia do vencimento (1-31)
+  firstDueDate: string;  // Data da primeira parcela YYYY-MM-DD
+  notes?: string;
+  createdAt: string;
+  payments: InstallmentPayment[];
+}
+

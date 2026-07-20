@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { Home, Package, ShoppingBag, BarChart2, User, Zap } from 'lucide-react';
+import { Home, Package, ShoppingBag, BarChart2, CreditCard, User, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStore } from '@/store/useStore';
 
@@ -7,9 +7,11 @@ const tabs = [
   { to: '/', label: 'Início', icon: Home },
   { to: '/estoque', label: 'Estoque', icon: Package },
   { to: '/vendas', label: 'Vendas', icon: ShoppingBag },
+  { to: '/parcelados', label: 'Parcelados', icon: CreditCard },
   { to: '/relatorios', label: 'Relatórios', icon: BarChart2 },
   { to: '/perfil', label: 'Perfil', icon: User },
 ];
+
 
 // ─── Sidebar (Desktop) ────────────────────────────────────────────────────────
 export function SideNav() {
