@@ -33,18 +33,20 @@ import {
   CheckSquare,
 } from 'lucide-react';
 
-// Helper para calcular status automático de contas recorrentes
+// Helper para calcular status automático ou respeitar status definido manualmente
 function getBillStatus(tx: FinancialTransaction): 'paga' | 'pendente' | 'atrasada' {
+  // Se o usuário marcou como 'paga' ou tx.paid === true -> PAGA
   if (tx.status === 'paga' || tx.paid === true) return 'paga';
+  
+  // Se o usuário explicitamente marcou como 'pendente' -> PENDENTE
+  if (tx.status === 'pendente') return 'pendente';
+
+  // Se o usuário explicitamente marcou como 'atrasada' -> ATRASADA
   if (tx.status === 'atrasada') return 'atrasada';
-  if (tx.status === 'pendente') {
-    const today = new Date().toISOString().split('T')[0];
-    if (tx.date < today) return 'atrasada';
-    return 'pendente';
-  }
-  // Default automático se não especificado
+
+  // Se não foi especificado status (avaliação automática por data)
   const today = new Date().toISOString().split('T')[0];
-  if (tx.date < today) return 'atrasada';
+  if (tx.date && tx.date < today) return 'atrasada';
   return 'pendente';
 }
 
@@ -66,8 +68,8 @@ export function FinancialManagement() {
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [isDebtModalOpen, setIsDebtModalOpen] = useState(false);
 
-  // Filter Month
-  const currentMonthKey = new Date().toISOString().slice(0, 7); // YYYY-MM
+  // Filter Month (YYYY-MM)
+  const currentMonthKey = new Date().toISOString().slice(0, 7);
   const [selectedMonth, setSelectedMonth] = useState(currentMonthKey);
 
   // Form State: Transaction
@@ -76,7 +78,7 @@ export function FinancialManagement() {
   const [txAmount, setTxAmount] = useState('');
   const [txCategory, setTxCategory] = useState<FinancialCategory | string>('salario');
   const [txDate, setTxDate] = useState(new Date().toISOString().split('T')[0]);
-  const [txDueDay, setTxDueDay] = useState('5');
+  const [txDueDay, setTxDueDay] = useState('15');
   const [txStatus, setTxStatus] = useState<'paga' | 'pendente' | 'atrasada'>('pendente');
   const [txIsRecurring, setTxIsRecurring] = useState(false);
   const [txNotes, setTxNotes] = useState('');
@@ -91,16 +93,14 @@ export function FinancialManagement() {
   const [debtFirstDueDate, setDebtFirstDueDate] = useState(new Date().toISOString().split('T')[0]);
   const [debtNotes, setDebtNotes] = useState('');
 
-  // ─── GERAÇÃO AUTOMÁTICA DE CONTAS RECORRENTES NO DIA 1 DO MÊS ───────────────────
+  // ─── GERAÇÃO AUTOMÁTICA DE CONTAS RECORRENTES PARA O MÊS SELECIONADO ─────────────
   useEffect(() => {
-    // Projeta contas recorrentes cadastradas para o mês selecionado
     const recurringTemplates = financialTransactions.filter(
       (tx) => tx.type === 'recurring_bill'
     );
 
     recurringTemplates.forEach((template) => {
       const templateMonth = template.date.slice(0, 7);
-      // Se a conta recorrente foi criada antes ou no mês selecionado, garante a instância no mês
       if (templateMonth <= selectedMonth) {
         const expectedDate = `${selectedMonth}-${String(template.dueDay || 1).padStart(2, '0')}`;
         const instanceExists = financialTransactions.some(
@@ -111,10 +111,6 @@ export function FinancialManagement() {
         );
 
         if (!instanceExists && templateMonth !== selectedMonth) {
-          const today = new Date().toISOString().split('T')[0];
-          const autoStatus = expectedDate < today ? 'atrasada' : 'pendente';
-
-          // Cria automaticamente a instância da conta para o mês selecionado
           const newInstance: FinancialTransaction = {
             id: 'tx_rec_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
             title: template.title,
@@ -122,9 +118,9 @@ export function FinancialManagement() {
             type: 'recurring_bill',
             category: template.category,
             date: expectedDate,
-            dueDay: template.dueDay || 1,
+            dueDay: template.dueDay || 15,
             isRecurring: true,
-            status: autoStatus,
+            status: 'pendente',
             paid: false,
             notes: template.notes,
             createdAt: new Date().toISOString(),
@@ -167,10 +163,23 @@ export function FinancialManagement() {
     return monthDailyExpenses.reduce((acc, tx) => acc + tx.amount, 0);
   }, [monthDailyExpenses]);
 
-  // 3. Contas Recorrentes Mensais (Energia, Água, Internet, Aluguel, etc.)
+  // 3. Contas Recorrentes Mensais (Garante que TODAS as contas adicionadas apareçam)
   const monthRecurringBills = useMemo(() => {
-    return monthTransactions.filter((tx) => tx.type === 'recurring_bill');
-  }, [monthTransactions]);
+    const directBills = financialTransactions.filter(
+      (tx) => tx.type === 'recurring_bill' && tx.date.startsWith(selectedMonth)
+    );
+
+    // Garante que se a conta foi adicionada em outro mês sem cópia direta, apareça também
+    const otherBills = financialTransactions.filter(
+      (tx) => tx.type === 'recurring_bill' && !tx.date.startsWith(selectedMonth)
+    );
+
+    const missingInMonth = otherBills.filter(
+      (other) => !directBills.some((d) => d.title === other.title)
+    );
+
+    return [...directBills, ...missingInMonth];
+  }, [financialTransactions, selectedMonth]);
 
   const totalRecurringBills = useMemo(() => {
     return monthRecurringBills.reduce((acc, tx) => acc + tx.amount, 0);
@@ -191,13 +200,22 @@ export function FinancialManagement() {
     }, 0);
   }, [financialDebts]);
 
-  // Handler para Salvar Lançamento
+  // Handler para Salvar Lançamento (Manual ou Recorrente)
   const handleSaveTransaction = (e: React.FormEvent) => {
     e.preventDefault();
     if (!txTitle.trim() || !txAmount || parseFloat(txAmount) <= 0) return;
 
-    const dueDayNum = parseInt(txDueDay) || 1;
+    const dueDayNum = parseInt(txDueDay) || 15;
     const isRec = txType === 'recurring_bill';
+
+    // Garante que a data da conta criada seja vinculada ao mês selecionado na tela
+    const formattedDueDay = String(dueDayNum).padStart(2, '0');
+    const finalDate = isRec
+      ? `${selectedMonth}-${formattedDueDay}`
+      : txDate.startsWith(selectedMonth)
+      ? txDate
+      : `${selectedMonth}-${txDate.split('-')[2] || '01'}`;
+
     const isPaid = txType === 'income' || txStatus === 'paga';
 
     const newTx: FinancialTransaction = {
@@ -206,7 +224,7 @@ export function FinancialManagement() {
       amount: parseFloat(txAmount),
       type: txType,
       category: txCategory,
-      date: txDate,
+      date: finalDate,
       dueDay: dueDayNum,
       isRecurring: isRec,
       status: txType === 'recurring_bill' ? txStatus : isPaid ? 'paga' : 'pendente',
@@ -288,6 +306,7 @@ export function FinancialManagement() {
       setTxCategory('moradia');
       setTxIsRecurring(true);
       setTxStatus('pendente');
+      setTxDueDay('15');
     } else {
       setTxCategory('alimentacao');
       setTxIsRecurring(false);
@@ -473,9 +492,6 @@ export function FinancialManagement() {
                   <p className="text-xs sm:text-sm font-medium text-zinc-400">
                     Nenhum lançamento registrado neste mês.
                   </p>
-                  <p className="text-[11px] text-zinc-600 mt-1">
-                    Navegue nas abas acima para cadastrar receitas, gastos diários ou contas.
-                  </p>
                 </div>
               ) : (
                 <div className="space-y-2">
@@ -586,7 +602,7 @@ export function FinancialManagement() {
         </div>
       )}
 
-      {/* ABA 2: RECEITAS (Salário, Bicos, Rendas Extras) */}
+      {/* ABA 2: RECEITAS */}
       {activeTab === 'incomes' && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
@@ -641,7 +657,7 @@ export function FinancialManagement() {
         </div>
       )}
 
-      {/* ABA 3: GASTOS DIÁRIOS (Gasolina, Almoço, Lanche, Uber) */}
+      {/* ABA 3: GASTOS DIÁRIOS */}
       {activeTab === 'daily_expenses' && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
@@ -696,7 +712,7 @@ export function FinancialManagement() {
         </div>
       )}
 
-      {/* ABA 4: CONTAS RECORRENTES (Energia, Água, Internet, Aluguel) */}
+      {/* ABA 4: CONTAS RECORRENTES */}
       {activeTab === 'recurring_bills' && (
         <div className="space-y-3">
           <div className="flex items-center justify-between">
@@ -746,7 +762,7 @@ export function FinancialManagement() {
                     <div className="min-w-0">
                       <p className="text-xs sm:text-sm font-bold text-white truncate">{tx.title}</p>
                       <p className="text-[10px] text-zinc-400 mt-0.5">
-                        Vence dia <strong className="text-zinc-200">{tx.dueDay || 1}</strong> • {formatCurrency(tx.amount)}
+                        Vence dia <strong className="text-zinc-200">{tx.dueDay || 15}</strong> • {formatCurrency(tx.amount)}
                       </p>
                     </div>
                   </div>
@@ -793,14 +809,14 @@ export function FinancialManagement() {
 
             {monthRecurringBills.length === 0 && (
               <div className="col-span-full py-8 text-center text-zinc-500 text-xs bg-zinc-900/50 border border-zinc-800 rounded-2xl">
-                Nenhuma conta recorrente cadastrada. Adicione sua conta de luz, água ou aluguel!
+                Nenhuma conta recorrente cadastrada. Clique em "+ Nova Conta Recorrente" para adicionar!
               </div>
             )}
           </div>
         </div>
       )}
 
-      {/* ABA 5: DÍVIDAS / EMPRÉSTIMOS (Consignado, Cerasa, Empréstimos) */}
+      {/* ABA 5: DÍVIDAS / EMPRÉSTIMOS */}
       {activeTab === 'debts' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -819,9 +835,6 @@ export function FinancialManagement() {
             <div className="bg-zinc-900/90 border border-zinc-800 rounded-2xl p-6 text-center">
               <Building2 size={36} className="mx-auto text-zinc-600 mb-2" />
               <p className="text-xs sm:text-sm font-semibold text-white">Nenhuma dívida ou empréstimo cadastrado.</p>
-              <p className="text-[11px] text-zinc-500 mt-1">
-                Cadastre seus empréstimos consignados ou dívidas para dar baixa em cada parcela.
-              </p>
             </div>
           ) : (
             <div className="space-y-4">
