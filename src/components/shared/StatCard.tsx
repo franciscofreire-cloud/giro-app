@@ -58,22 +58,29 @@ export function StatCard({
   return (
     <div
       className={cn(
-        'relative rounded-2xl bg-zinc-900 border p-4 flex flex-col gap-3 animate-fade-in-up',
+        'relative rounded-2xl bg-zinc-900/90 border p-3.5 sm:p-5 flex flex-col justify-between gap-2.5 transition-all min-w-0',
         styles.border,
         styles.glow,
         className
       )}
-      style={{ animationDelay: `${delay}ms`, opacity: 0 }}
+      style={{ animationDelay: `${delay}ms` }}
     >
-      {icon && (
-        <div className={cn('w-9 h-9 rounded-xl flex items-center justify-center', styles.icon)}>
-          {icon}
-        </div>
-      )}
-      <div>
-        <p className="text-[10px] sm:text-xs font-medium text-zinc-500 uppercase tracking-widest mb-1">{label}</p>
-        <p className={cn('text-lg sm:text-2xl font-bold leading-none tabular-nums', styles.value)}>{value}</p>
-        {sub && <p className="text-[10px] sm:text-xs text-zinc-500 mt-1">{sub}</p>}
+      <div className="flex items-center justify-between gap-2">
+        <span className="text-[10px] sm:text-xs font-semibold text-zinc-400 uppercase tracking-wider truncate">
+          {label}
+        </span>
+        {icon && (
+          <div className={cn('w-7 h-7 sm:w-9 sm:h-9 rounded-xl flex items-center justify-center shrink-0', styles.icon)}>
+            {icon}
+          </div>
+        )}
+      </div>
+
+      <div className="min-w-0">
+        <p className={cn('text-lg sm:text-2xl font-extrabold leading-tight tabular-nums truncate', styles.value)}>
+          {value}
+        </p>
+        {sub && <p className="text-[10px] sm:text-xs text-zinc-500 mt-1 truncate">{sub}</p>}
       </div>
     </div>
   );

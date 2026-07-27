@@ -120,14 +120,33 @@ export function Dashboard() {
         </div>
       </div>
 
-      {/* KPI Cards — 3 cols mobile & desktop */}
-      <div className="px-4 md:px-8 grid grid-cols-3 gap-2 md:gap-4 mb-6">
-        <StatCard label="Lucro do Mês" value={formatBRL(monthlyProfit)} sub="Mês atual"
-          icon={<TrendingUp size={18} />} variant={monthlyProfit >= 0 ? 'profit' : 'loss'} delay={0} />
-        <StatCard label="Itens em Estoque" value={String(stockCount)} sub="Total em estoque"
-          icon={<Package size={18} />} variant="blue" delay={60} />
-        <StatCard label="Faturamento" value={formatBRL(monthlyRevenue)} sub="Mês atual"
-          icon={<ShoppingBag size={18} />} variant="default" delay={120} />
+      {/* KPI Cards — Responsivo sem deformar valores no mobile */}
+      <div className="px-4 md:px-8 grid grid-cols-2 sm:grid-cols-3 gap-3 md:gap-4 mb-6">
+        <StatCard
+          label="Lucro do Mês"
+          value={formatBRL(monthlyProfit)}
+          sub="Mês atual"
+          icon={<TrendingUp size={18} />}
+          variant={monthlyProfit >= 0 ? 'profit' : 'loss'}
+          className="col-span-2 sm:col-span-1"
+          delay={0}
+        />
+        <StatCard
+          label="Itens Estoque"
+          value={String(stockCount)}
+          sub="Total no estoque"
+          icon={<Package size={18} />}
+          variant="blue"
+          delay={60}
+        />
+        <StatCard
+          label="Faturamento"
+          value={formatBRL(monthlyRevenue)}
+          sub="Mês atual"
+          icon={<ShoppingBag size={18} />}
+          variant="default"
+          delay={120}
+        />
       </div>
 
       {/* Desktop: side by side — Chart + Recent Sales */}
