@@ -33,7 +33,6 @@ import {
 export function FinancialManagement() {
   const financialTransactions = useStore((s) => s.financialTransactions);
   const financialDebts = useStore((s) => s.financialDebts);
-  const sales = useStore((s) => s.sales);
   const addFinancialTransaction = useStore((s) => s.addFinancialTransaction);
   const deleteFinancialTransaction = useStore((s) => s.deleteFinancialTransaction);
   const addFinancialDebt = useStore((s) => s.addFinancialDebt);
@@ -79,25 +78,17 @@ export function FinancialManagement() {
     }
   };
 
-  // Profit from Sales in the selected month
-  const salesProfitThisMonth = useMemo(() => {
-    return sales
-      .filter((s) => s.saleDate.startsWith(selectedMonth))
-      .reduce((acc, s) => acc + (s.profit || 0), 0);
-  }, [sales, selectedMonth]);
-
   // Filtered transactions for selected month
   const monthTransactions = useMemo(() => {
     return financialTransactions.filter((tx) => tx.date.startsWith(selectedMonth));
   }, [financialTransactions, selectedMonth]);
 
-  // Total Incomes for the selected month (Registered Incomes + Sales Profit)
+  // Total Incomes for the selected month (Purely registered financial transactions)
   const totalIncome = useMemo(() => {
-    const registered = monthTransactions
+    return monthTransactions
       .filter((tx) => tx.type === 'income')
       .reduce((acc, tx) => acc + tx.amount, 0);
-    return registered + salesProfitThisMonth;
-  }, [monthTransactions, salesProfitThisMonth]);
+  }, [monthTransactions]);
 
   // Total Expenses for the selected month
   const totalExpense = useMemo(() => {
@@ -283,12 +274,7 @@ export function FinancialManagement() {
             {formatCurrency(totalIncome)}
           </p>
           <div className="flex items-center gap-2 mt-2 text-[11px] text-zinc-500">
-            <span>Salário + Extra</span>
-            {salesProfitThisMonth > 0 && (
-              <span className="text-emerald-400 font-medium">
-                (+{formatCurrency(salesProfitThisMonth)} Giro App)
-              </span>
-            )}
+            <span>Salário + Renda Extra</span>
           </div>
         </div>
 
