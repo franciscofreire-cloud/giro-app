@@ -143,7 +143,7 @@ export interface InstallmentPurchase {
 }
 
 // ─── Gestão Financeira Pessoal ───────────────────────────────────────────────
-export type TransactionType = 'income' | 'expense';
+export type TransactionType = 'income' | 'expense' | 'recurring_bill';
 
 export type FinancialCategory =
   | 'salario'
@@ -165,7 +165,10 @@ export interface FinancialTransaction {
   type: TransactionType;
   category: FinancialCategory | string;
   date: string;          // YYYY-MM-DD
-  isRecurring?: boolean; // Se é gasto/salário recorrente todo mês
+  isRecurring?: boolean; // Se é gasto/conta recorrente que repete todo mês
+  dueDay?: number;       // Dia do vencimento (1-31) para contas recorrentes
+  paid?: boolean;        // Se a conta recorrente ou gasto foi pago
+  paidDate?: string;
   notes?: string;
   createdAt: string;
 }

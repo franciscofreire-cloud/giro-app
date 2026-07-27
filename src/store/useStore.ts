@@ -37,6 +37,7 @@ interface StoreState {
   // Financial actions
   addFinancialTransaction: (transaction: FinancialTransaction) => Promise<void>;
   deleteFinancialTransaction: (id: string) => Promise<void>;
+  toggleTransactionPaid: (id: string) => Promise<void>;
   addFinancialDebt: (debt: FinancialDebt) => Promise<void>;
   deleteFinancialDebt: (id: string) => Promise<void>;
   toggleDebtParcelPayment: (debtId: string, parcelId: string) => Promise<void>;
@@ -616,6 +617,31 @@ export const useStore = create<StoreState>()((set, get) => ({
       }
     } catch (e) {
       console.error('Erro ao deletar transação financeira:', e);
+      set({ financialTransactions: previous });
+    }
+  },
+
+  toggleTransactionPaid: async (id) => {
+    const previous = get().financialTransactions;
+    const updated = previous.map((t) => {
+      if (t.id !== id) return t;
+      const newPaid = !t.paid;
+      return {
+        ...t,
+        paid: newPaid,
+        paidDate: newPaid ? new Date().toISOString().split('T')[0] : undefined,
+      };
+    });
+    set({ financialTransactions: updated });
+    try {
+      if (supabase) {
+        await supabase.from('settings').upsert({
+          key: 'financial_transactions',
+          value: JSON.stringify(updated),
+        });
+      }
+    } catch (e) {
+      console.error('Erro ao alternar pagamento da transação:', e);
       set({ financialTransactions: previous });
     }
   },
