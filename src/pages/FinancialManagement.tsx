@@ -79,7 +79,7 @@ export function FinancialManagement() {
   useEffect(() => {
     // Projeta contas recorrentes cadastradas para o mês selecionado
     const recurringTemplates = financialTransactions.filter(
-      (tx) => tx.isRecurring || tx.type === 'recurring_bill'
+      (tx) => tx.type === 'recurring_bill'
     );
 
     recurringTemplates.forEach((template) => {
@@ -91,7 +91,7 @@ export function FinancialManagement() {
           (tx) =>
             tx.title === template.title &&
             tx.date.startsWith(selectedMonth) &&
-            (tx.type === 'recurring_bill' || tx.isRecurring)
+            tx.type === 'recurring_bill'
         );
 
         if (!instanceExists && templateMonth !== selectedMonth) {
@@ -138,7 +138,7 @@ export function FinancialManagement() {
     return monthIncomes.reduce((acc, tx) => acc + tx.amount, 0);
   }, [monthIncomes]);
 
-  // 2. Gastos Diários do Mês (Gasolina, Almoço, Lanche, etc.)
+  // 2. Gastos Diários do Mês (Gasolina, Almoço, Lanche, Uber, etc.)
   const monthDailyExpenses = useMemo(() => {
     return monthTransactions.filter((tx) => tx.type === 'expense');
   }, [monthTransactions]);
@@ -147,9 +147,9 @@ export function FinancialManagement() {
     return monthDailyExpenses.reduce((acc, tx) => acc + tx.amount, 0);
   }, [monthDailyExpenses]);
 
-  // 3. Contas Recorrentes do Mês (Energia, Água, Internet, Aluguel, etc.)
+  // 3. Contas Recorrentes Mensais (Energia, Água, Internet, Aluguel, etc.)
   const monthRecurringBills = useMemo(() => {
-    return monthTransactions.filter((tx) => tx.type === 'recurring_bill' || (tx.isRecurring && tx.type !== 'income'));
+    return monthTransactions.filter((tx) => tx.type === 'recurring_bill');
   }, [monthTransactions]);
 
   const totalRecurringBills = useMemo(() => {
@@ -177,6 +177,7 @@ export function FinancialManagement() {
     if (!txTitle.trim() || !txAmount || parseFloat(txAmount) <= 0) return;
 
     const dueDayNum = parseInt(txDueDay) || 1;
+    const isRec = txType === 'recurring_bill';
 
     const newTx: FinancialTransaction = {
       id: 'tx_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
@@ -186,7 +187,7 @@ export function FinancialManagement() {
       category: txCategory,
       date: txDate,
       dueDay: dueDayNum,
-      isRecurring: txIsRecurring || txType === 'recurring_bill',
+      isRecurring: isRec,
       paid: txType === 'income' ? true : false,
       notes: txNotes.trim() || undefined,
       createdAt: new Date().toISOString(),
@@ -258,12 +259,15 @@ export function FinancialManagement() {
 
   const openNewTransaction = (type: TransactionType) => {
     setTxType(type);
-    if (type === 'income') setTxCategory('salario');
-    else if (type === 'recurring_bill') {
+    if (type === 'income') {
+      setTxCategory('salario');
+      setTxIsRecurring(false);
+    } else if (type === 'recurring_bill') {
       setTxCategory('moradia');
       setTxIsRecurring(true);
     } else {
       setTxCategory('alimentacao');
+      setTxIsRecurring(false);
     }
     setIsTransactionModalOpen(true);
   };
@@ -893,6 +897,7 @@ export function FinancialManagement() {
                   onClick={() => {
                     setTxType('income');
                     setTxCategory('salario');
+                    setTxIsRecurring(false);
                   }}
                   className={`py-1.5 text-[11px] font-bold rounded-lg transition-all ${
                     txType === 'income' ? 'bg-emerald-500 text-white shadow' : 'text-zinc-400 hover:text-white'
@@ -905,6 +910,7 @@ export function FinancialManagement() {
                   onClick={() => {
                     setTxType('expense');
                     setTxCategory('alimentacao');
+                    setTxIsRecurring(false);
                   }}
                   className={`py-1.5 text-[11px] font-bold rounded-lg transition-all ${
                     txType === 'expense' ? 'bg-rose-500 text-white shadow' : 'text-zinc-400 hover:text-white'
