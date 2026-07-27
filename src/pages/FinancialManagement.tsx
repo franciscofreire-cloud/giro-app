@@ -35,16 +35,10 @@ import {
 
 // Helper para calcular status automático ou respeitar status definido manualmente
 function getBillStatus(tx: FinancialTransaction): 'paga' | 'pendente' | 'atrasada' {
-  // Se o usuário marcou como 'paga' ou tx.paid === true -> PAGA
   if (tx.status === 'paga' || tx.paid === true) return 'paga';
-  
-  // Se o usuário explicitamente marcou como 'pendente' -> PENDENTE
   if (tx.status === 'pendente') return 'pendente';
-
-  // Se o usuário explicitamente marcou como 'atrasada' -> ATRASADA
   if (tx.status === 'atrasada') return 'atrasada';
 
-  // Se não foi especificado status (avaliação automática por data)
   const today = new Date().toISOString().split('T')[0];
   if (tx.date && tx.date < today) return 'atrasada';
   return 'pendente';
@@ -59,6 +53,8 @@ export function FinancialManagement() {
   const updateTransactionStatus = useStore((s) => s.updateTransactionStatus);
   const addFinancialDebt = useStore((s) => s.addFinancialDebt);
   const deleteFinancialDebt = useStore((s) => s.deleteFinancialDebt);
+  const clearAllDebts = useStore((s) => s.clearAllDebts);
+  const clearPendingDebts = useStore((s) => s.clearPendingDebts);
   const toggleDebtParcelPayment = useStore((s) => s.toggleDebtParcelPayment);
 
   // Active Tab: 'overview' | 'incomes' | 'daily_expenses' | 'recurring_bills' | 'debts'
@@ -163,13 +159,12 @@ export function FinancialManagement() {
     return monthDailyExpenses.reduce((acc, tx) => acc + tx.amount, 0);
   }, [monthDailyExpenses]);
 
-  // 3. Contas Recorrentes Mensais (Garante que TODAS as contas adicionadas apareçam)
+  // 3. Contas Recorrentes Mensais
   const monthRecurringBills = useMemo(() => {
     const directBills = financialTransactions.filter(
       (tx) => tx.type === 'recurring_bill' && tx.date.startsWith(selectedMonth)
     );
 
-    // Garante que se a conta foi adicionada em outro mês sem cópia direta, apareça também
     const otherBills = financialTransactions.filter(
       (tx) => tx.type === 'recurring_bill' && !tx.date.startsWith(selectedMonth)
     );
@@ -200,7 +195,7 @@ export function FinancialManagement() {
     }, 0);
   }, [financialDebts]);
 
-  // Handler para Salvar Lançamento (Manual ou Recorrente)
+  // Handler para Salvar Lançamento
   const handleSaveTransaction = (e: React.FormEvent) => {
     e.preventDefault();
     if (!txTitle.trim() || !txAmount || parseFloat(txAmount) <= 0) return;
@@ -208,7 +203,6 @@ export function FinancialManagement() {
     const dueDayNum = parseInt(txDueDay) || 15;
     const isRec = txType === 'recurring_bill';
 
-    // Garante que a data da conta criada seja vinculada ao mês selecionado na tela
     const formattedDueDay = String(dueDayNum).padStart(2, '0');
     const finalDate = isRec
       ? `${selectedMonth}-${formattedDueDay}`
@@ -236,7 +230,6 @@ export function FinancialManagement() {
     addFinancialTransaction(newTx);
     setIsTransactionModalOpen(false);
 
-    // Reset Form
     setTxTitle('');
     setTxAmount('');
     setTxNotes('');
@@ -259,10 +252,6 @@ export function FinancialManagement() {
       const pDate = new Date(startDateObj);
       pDate.setMonth(startDateObj.getMonth() + (i - 1));
       
-      if (dueDayNum > 0 && dueDayNum <= 31) {
-        pDate.setDate(dueDayNum);
-      }
-
       parcels.push({
         id: `p_${Date.now()}_${i}`,
         number: i,
@@ -288,6 +277,7 @@ export function FinancialManagement() {
 
     addFinancialDebt(newDebt);
     setIsDebtModalOpen(false);
+    setActiveTab('debts'); // Exibe a aba de Dívidas imediatamente ao adicionar
 
     // Reset Form
     setDebtTitle('');
@@ -768,7 +758,6 @@ export function FinancialManagement() {
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
-                    {/* Seletor direto de Status: PAGA / PENDENTE / ATRASADA */}
                     <select
                       value={currentStatus}
                       onChange={(e) =>
@@ -819,22 +808,36 @@ export function FinancialManagement() {
       {/* ABA 5: DÍVIDAS / EMPRÉSTIMOS */}
       {activeTab === 'debts' && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
               <h2 className="text-sm sm:text-base font-bold text-white">Dívidas & Empréstimos</h2>
             </div>
-            <button
-              onClick={() => setIsDebtModalOpen(true)}
-              className="flex items-center gap-1 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-semibold shadow-md shadow-purple-600/20"
-            >
-              <Plus size={14} /> Novo Empréstimo / Dívida
-            </button>
+            <div className="flex items-center gap-2">
+              {financialDebts.length > 0 && (
+                <button
+                  onClick={() => clearAllDebts()}
+                  className="flex items-center gap-1 px-3 py-1.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-xl text-xs font-semibold transition-all"
+                  title="Apagar todas as dívidas"
+                >
+                  <Trash2 size={13} /> Apagar Dívidas
+                </button>
+              )}
+              <button
+                onClick={() => setIsDebtModalOpen(true)}
+                className="flex items-center gap-1 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-semibold shadow-md shadow-purple-600/20"
+              >
+                <Plus size={14} /> Novo Empréstimo / Dívida
+              </button>
+            </div>
           </div>
 
           {financialDebts.length === 0 ? (
             <div className="bg-zinc-900/90 border border-zinc-800 rounded-2xl p-6 text-center">
               <Building2 size={36} className="mx-auto text-zinc-600 mb-2" />
               <p className="text-xs sm:text-sm font-semibold text-white">Nenhuma dívida ou empréstimo cadastrado.</p>
+              <p className="text-[11px] text-zinc-500 mt-1">
+                Cadastre seus empréstimos consignados ou dívidas para dar baixa nas parcelas.
+              </p>
             </div>
           ) : (
             <div className="space-y-4">

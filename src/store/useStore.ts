@@ -41,6 +41,8 @@ interface StoreState {
   updateTransactionStatus: (id: string, status: 'paga' | 'pendente' | 'atrasada') => Promise<void>;
   addFinancialDebt: (debt: FinancialDebt) => Promise<void>;
   deleteFinancialDebt: (id: string) => Promise<void>;
+  clearAllDebts: () => Promise<void>;
+  clearPendingDebts: () => Promise<void>;
   toggleDebtParcelPayment: (debtId: string, parcelId: string) => Promise<void>;
 
   // Item actions
@@ -705,6 +707,39 @@ export const useStore = create<StoreState>()((set, get) => ({
       }
     } catch (e) {
       console.error('Erro ao deletar empréstimo/dívida:', e);
+      set({ financialDebts: previous });
+    }
+  },
+
+  clearAllDebts: async () => {
+    const previous = get().financialDebts;
+    set({ financialDebts: [] });
+    try {
+      if (supabase) {
+        await supabase.from('settings').upsert({
+          key: 'financial_debts',
+          value: JSON.stringify([]),
+        });
+      }
+    } catch (e) {
+      console.error('Erro ao apagar dívidas:', e);
+      set({ financialDebts: previous });
+    }
+  },
+
+  clearPendingDebts: async () => {
+    const previous = get().financialDebts;
+    const updated = previous.filter((d) => d.parcels.every((p) => p.paid));
+    set({ financialDebts: updated });
+    try {
+      if (supabase) {
+        await supabase.from('settings').upsert({
+          key: 'financial_debts',
+          value: JSON.stringify(updated),
+        });
+      }
+    } catch (e) {
+      console.error('Erro ao apagar dívidas pendentes:', e);
       set({ financialDebts: previous });
     }
   },
