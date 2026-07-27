@@ -27,21 +27,16 @@ import {
   X,
   AlertTriangle,
   Repeat,
+  Edit2,
   DollarSign,
-  Receipt,
-  ShieldAlert,
   CheckSquare,
 } from 'lucide-react';
 
 // Helper para calcular status automático (PENDENTE x VENCIDA x PAGA)
 function getBillStatus(tx: FinancialTransaction): 'paga' | 'pendente' | 'vencida' {
-  // 1. Se estiver paga -> PAGA
   if (tx.status === 'paga' || tx.paid === true) return 'paga';
-
-  // 2. Se o usuário explicitamente alterou o status no dropdown para VENCIDA -> VENCIDA
   if (tx.status === 'vencida' || tx.status === 'atrasada') return 'vencida';
 
-  // 3. Verificação Automática baseada no Dia de Vencimento e Data Atual
   const today = new Date();
   const currentDay = today.getDate();
   const currentMonthStr = today.toISOString().slice(0, 7); // YYYY-MM
@@ -49,17 +44,14 @@ function getBillStatus(tx: FinancialTransaction): 'paga' | 'pendente' | 'vencida
   const txMonth = tx.date ? tx.date.slice(0, 7) : currentMonthStr;
   const dueDay = tx.dueDay || (tx.date ? parseInt(tx.date.split('-')[2]) : 15);
 
-  // Se a conta for de um mês passado e não foi paga -> VENCIDA!
   if (txMonth < currentMonthStr) {
     return 'vencida';
   }
 
-  // Se for do mês atual: se o dia de hoje for maior que o dia de vencimento (ex: dia 27 > dia 15) -> VENCIDA!
   if (txMonth === currentMonthStr && currentDay > dueDay) {
     return 'vencida';
   }
 
-  // Se o dia de hoje for menor ou igual ao dia de vencimento -> PENDENTE
   return 'pendente';
 }
 
@@ -68,13 +60,11 @@ export function FinancialManagement() {
   const financialDebts = useStore((s) => s.financialDebts);
   const addFinancialTransaction = useStore((s) => s.addFinancialTransaction);
   const deleteFinancialTransaction = useStore((s) => s.deleteFinancialTransaction);
-  const toggleTransactionPaid = useStore((s) => s.toggleTransactionPaid);
   const updateTransactionStatus = useStore((s) => s.updateTransactionStatus);
   const addFinancialDebt = useStore((s) => s.addFinancialDebt);
+  const updateFinancialDebt = useStore((s) => s.updateFinancialDebt);
   const deleteFinancialDebt = useStore((s) => s.deleteFinancialDebt);
   const clearAllDebts = useStore((s) => s.clearAllDebts);
-  const clearPendingDebts = useStore((s) => s.clearPendingDebts);
-  const toggleDebtParcelPayment = useStore((s) => s.toggleDebtParcelPayment);
 
   // Active Tab: 'overview' | 'incomes' | 'daily_expenses' | 'recurring_bills' | 'debts'
   const [activeTab, setActiveTab] = useState<'overview' | 'incomes' | 'daily_expenses' | 'recurring_bills' | 'debts'>('overview');
@@ -82,6 +72,13 @@ export function FinancialManagement() {
   // Modals state
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [isDebtModalOpen, setIsDebtModalOpen] = useState(false);
+
+  // Edit/Amortize Debt Modal
+  const [editingDebt, setEditingDebt] = useState<FinancialDebt | null>(null);
+  const [editCreditor, setEditCreditor] = useState('');
+  const [editTitle, setEditTitle] = useState('');
+  const [editRemainingAmount, setEditRemainingAmount] = useState('');
+  const [amortizeAmount, setAmortizeAmount] = useState('');
 
   // Filter Month (YYYY-MM)
   const currentMonthKey = new Date().toISOString().slice(0, 7);
@@ -98,17 +95,12 @@ export function FinancialManagement() {
   const [txIsRecurring, setTxIsRecurring] = useState(false);
   const [txNotes, setTxNotes] = useState('');
 
-  // Form State: Debt
-  const [debtTitle, setDebtTitle] = useState('');
-  const [debtCreditor, setDebtCreditor] = useState('');
-  const [debtTotalAmount, setDebtTotalAmount] = useState('');
-  const [debtInstallmentsCount, setDebtInstallmentsCount] = useState('12');
-  const [debtInstallmentValue, setDebtInstallmentValue] = useState('');
-  const [debtDueDay, setDebtDueDay] = useState('10');
-  const [debtFirstDueDate, setDebtFirstDueDate] = useState(new Date().toISOString().split('T')[0]);
-  const [debtNotes, setDebtNotes] = useState('');
+  // Form State: Nova Dívida (Simplificada com 3 campos: Instituição, Modelo de Dívida, Valor)
+  const [debtCreditor, setDebtCreditor] = useState(''); // Nome Instituição (ex: Nubank, Cerasa)
+  const [debtTitle, setDebtTitle] = useState('');       // Modelo de Dívida (ex: Empréstimo Consignado, Cartão)
+  const [debtTotalAmount, setDebtTotalAmount] = useState(''); // Valor Total
 
-  // ─── GERAÇÃO AUTOMÁTICA DE CONTAS RECORRENTES PARA O MÊS SELECIONADO ─────────────
+  // ─── GERAÇÃO AUTOMÁTICA DE CONTAS RECORRENTES ─────────────────────────────
   useEffect(() => {
     const recurringTemplates = financialTransactions.filter(
       (tx) => tx.type === 'recurring_bill'
@@ -146,21 +138,12 @@ export function FinancialManagement() {
     });
   }, [selectedMonth, financialTransactions, addFinancialTransaction]);
 
-  // Auto-calcular valor da parcela da dívida
-  const handleTotalOrCountChange = (totalStr: string, countStr: string) => {
-    const total = parseFloat(totalStr) || 0;
-    const count = parseInt(countStr) || 1;
-    if (total > 0 && count > 0) {
-      setDebtInstallmentValue((total / count).toFixed(2));
-    }
-  };
-
   // Movimentações do Mês Selecionado
   const monthTransactions = useMemo(() => {
     return financialTransactions.filter((tx) => tx.date.startsWith(selectedMonth));
   }, [financialTransactions, selectedMonth]);
 
-  // 1. Receitas do Mês (Salário, Bicos, Rendas Extras)
+  // 1. Receitas
   const monthIncomes = useMemo(() => {
     return monthTransactions.filter((tx) => tx.type === 'income');
   }, [monthTransactions]);
@@ -169,7 +152,7 @@ export function FinancialManagement() {
     return monthIncomes.reduce((acc, tx) => acc + tx.amount, 0);
   }, [monthIncomes]);
 
-  // 2. Gastos Diários do Mês (Gasolina, Almoço, Lanche, Uber, etc.)
+  // 2. Gastos Diários
   const monthDailyExpenses = useMemo(() => {
     return monthTransactions.filter((tx) => tx.type === 'expense');
   }, [monthTransactions]);
@@ -178,7 +161,7 @@ export function FinancialManagement() {
     return monthDailyExpenses.reduce((acc, tx) => acc + tx.amount, 0);
   }, [monthDailyExpenses]);
 
-  // 3. Contas Recorrentes Mensais
+  // 3. Contas Recorrentes
   const monthRecurringBills = useMemo(() => {
     const directBills = financialTransactions.filter(
       (tx) => tx.type === 'recurring_bill' && tx.date.startsWith(selectedMonth)
@@ -199,18 +182,17 @@ export function FinancialManagement() {
     return monthRecurringBills.reduce((acc, tx) => acc + tx.amount, 0);
   }, [monthRecurringBills]);
 
-  // Total de Gastos Gerais (Diários + Contas Recorrentes)
+  // Total Gastos Gerais
   const totalExpensesAll = totalDailyExpenses + totalRecurringBills;
 
-  // Saldo Livre (Sobra)
+  // Saldo Livre
   const netBalance = totalIncome - totalExpensesAll;
 
-  // 4. Dívidas & Empréstimos (Saldo Devedor Restante)
+  // 4. Dívidas & Empréstimos (Saldo Devedor Restante Acumulado)
   const totalRemainingDebt = useMemo(() => {
     return financialDebts.reduce((acc, debt) => {
-      const unpaidParcels = debt.parcels.filter((p) => !p.paid);
-      const remainingAmount = unpaidParcels.reduce((pAcc, p) => pAcc + p.amount, 0);
-      return acc + remainingAmount;
+      const rem = debt.remainingAmount !== undefined ? debt.remainingAmount : debt.totalAmount;
+      return acc + (rem > 0 ? rem : 0);
     }, 0);
   }, [financialDebts]);
 
@@ -254,55 +236,60 @@ export function FinancialManagement() {
     setTxNotes('');
   };
 
-  // Handler para Salvar Dívida / Empréstimo Consignado
+  // Handler para Salvar Nova Dívida (Simplificada com 3 campos: Instituição, Modelo de Dívida, Valor)
   const handleSaveDebt = (e: React.FormEvent) => {
     e.preventDefault();
     const total = parseFloat(debtTotalAmount) || 0;
-    const count = parseInt(debtInstallmentsCount) || 1;
-    const instValue = parseFloat(debtInstallmentValue) || (total / count);
-    const dueDayNum = parseInt(debtDueDay) || 10;
 
-    if (!debtTitle.trim() || total <= 0 || count <= 0) return;
-
-    const parcels = [];
-    const startDateObj = new Date(debtFirstDueDate);
-
-    for (let i = 1; i <= count; i++) {
-      const pDate = new Date(startDateObj);
-      pDate.setMonth(startDateObj.getMonth() + (i - 1));
-      
-      parcels.push({
-        id: `p_${Date.now()}_${i}`,
-        number: i,
-        dueDate: pDate.toISOString().split('T')[0],
-        amount: instValue,
-        paid: false,
-      });
-    }
+    if (!debtCreditor.trim() || !debtTitle.trim() || total <= 0) return;
 
     const newDebt: FinancialDebt = {
       id: 'debt_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
       title: debtTitle.trim(),
-      creditor: debtCreditor.trim() || 'Não especificado',
+      creditor: debtCreditor.trim(),
       totalAmount: total,
-      installmentsCount: count,
-      installmentValue: instValue,
-      dueDay: dueDayNum,
-      firstDueDate: debtFirstDueDate,
-      notes: debtNotes.trim() || undefined,
+      remainingAmount: total,
       createdAt: new Date().toISOString(),
-      parcels,
     };
 
     addFinancialDebt(newDebt);
     setIsDebtModalOpen(false);
     setActiveTab('debts');
 
-    setDebtTitle('');
+    // Reset Form
     setDebtCreditor('');
+    setDebtTitle('');
     setDebtTotalAmount('');
-    setDebtInstallmentValue('');
-    setDebtNotes('');
+  };
+
+  // Handler para Abrir Modal de Edição / Abatimento de Dívida
+  const openEditDebt = (debt: FinancialDebt) => {
+    setEditingDebt(debt);
+    setEditCreditor(debt.creditor);
+    setEditTitle(debt.title);
+    setEditRemainingAmount(String(debt.remainingAmount !== undefined ? debt.remainingAmount : debt.totalAmount));
+    setAmortizeAmount('');
+  };
+
+  // Handler para Salvar Alterações / Abatimento na Dívida
+  const handleSaveDebtEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingDebt) return;
+
+    let newRemaining = parseFloat(editRemainingAmount) || 0;
+    const amortVal = parseFloat(amortizeAmount) || 0;
+
+    if (amortVal > 0) {
+      newRemaining = Math.max(0, newRemaining - amortVal);
+    }
+
+    updateFinancialDebt(editingDebt.id, {
+      creditor: editCreditor.trim() || editingDebt.creditor,
+      title: editTitle.trim() || editingDebt.title,
+      remainingAmount: newRemaining,
+    });
+
+    setEditingDebt(null);
   };
 
   const openNewTransaction = (type: TransactionType) => {
@@ -410,7 +397,7 @@ export function FinancialManagement() {
           <p className="text-lg sm:text-2xl font-extrabold text-white mt-1.5 truncate">
             {formatCurrency(totalRemainingDebt)}
           </p>
-          <p className="text-[10px] text-zinc-500 mt-1 truncate">{financialDebts.length} Empréstimo(s)</p>
+          <p className="text-[10px] text-zinc-500 mt-1 truncate">{financialDebts.length} Dívida(s)</p>
         </div>
       </div>
 
@@ -776,7 +763,6 @@ export function FinancialManagement() {
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
-                    {/* Seletor de Status: PAGA / PENDENTE / VENCIDA */}
                     <select
                       value={currentStatus}
                       onChange={(e) =>
@@ -824,7 +810,7 @@ export function FinancialManagement() {
         </div>
       )}
 
-      {/* ABA 5: DÍVIDAS / EMPRÉSTIMOS */}
+      {/* ABA 5: DÍVIDAS / EMPRÉSTIMOS (REFORMULADA COM EDITAR E AMORTIZAR AOS POUCOS) */}
       {activeTab === 'debts' && (
         <div className="space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -845,7 +831,7 @@ export function FinancialManagement() {
                 onClick={() => setIsDebtModalOpen(true)}
                 className="flex items-center gap-1 px-3 py-1.5 bg-purple-600 hover:bg-purple-700 text-white rounded-xl text-xs font-semibold shadow-md shadow-purple-600/20"
               >
-                <Plus size={14} /> Novo Empréstimo / Dívida
+                <Plus size={14} /> Nova Dívida
               </button>
             </div>
           </div>
@@ -853,108 +839,78 @@ export function FinancialManagement() {
           {financialDebts.length === 0 ? (
             <div className="bg-zinc-900/90 border border-zinc-800 rounded-2xl p-6 text-center">
               <Building2 size={36} className="mx-auto text-zinc-600 mb-2" />
-              <p className="text-xs sm:text-sm font-semibold text-white">Nenhuma dívida ou empréstimo cadastrado.</p>
+              <p className="text-xs sm:text-sm font-semibold text-white">Nenhuma dívida cadastrada.</p>
               <p className="text-[11px] text-zinc-500 mt-1">
-                Cadastre seus empréstimos consignados ou dívidas para dar baixa nas parcelas.
+                Clique em "+ Nova Dívida" e informe a Instituição, Modelo de Dívida e o Valor.
               </p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
               {financialDebts.map((debt) => {
-                const paidParcelsCount = debt.parcels.filter((p) => p.paid).length;
-                const progressPercent = (paidParcelsCount / debt.installmentsCount) * 100;
-                const paidAmount = debt.parcels.filter((p) => p.paid).reduce((a, b) => a + b.amount, 0);
-                const remainingAmount = debt.totalAmount - paidAmount;
+                const remaining = debt.remainingAmount !== undefined ? debt.remainingAmount : debt.totalAmount;
+                const isQuitada = remaining <= 0;
 
                 return (
-                  <div key={debt.id} className="bg-zinc-900/90 border border-zinc-800 rounded-2xl p-4 space-y-3">
-                    <div className="flex items-center justify-between pb-3 border-b border-zinc-800 gap-2">
-                      <div className="min-w-0">
-                        <div className="flex flex-wrap items-center gap-1.5">
-                          <h3 className="text-sm font-bold text-white truncate">{debt.title}</h3>
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-purple-500/10 text-purple-400 font-medium border border-purple-500/20">
-                            {debt.creditor}
-                          </span>
+                  <div
+                    key={debt.id}
+                    className={`bg-zinc-900/90 border rounded-2xl p-4 space-y-3 flex flex-col justify-between transition-all ${
+                      isQuitada ? 'border-emerald-500/30 bg-emerald-950/10' : 'border-zinc-800 hover:border-purple-500/30'
+                    }`}
+                  >
+                    <div>
+                      <div className="flex items-center justify-between gap-2 mb-2">
+                        <span className="text-[11px] font-bold text-purple-400 px-2.5 py-0.5 rounded-full bg-purple-500/10 border border-purple-500/20 truncate">
+                          {debt.creditor}
+                        </span>
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => openEditDebt(debt)}
+                            className="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition-all"
+                            title="Editar / Pagamento Parcial"
+                          >
+                            <Edit2 size={14} />
+                          </button>
+                          <button
+                            onClick={() => deleteFinancialDebt(debt.id)}
+                            className="p-1.5 text-zinc-500 hover:text-rose-400 rounded-lg hover:bg-rose-500/10 transition-all"
+                          >
+                            <Trash2 size={14} />
+                          </button>
                         </div>
-                        <p className="text-[10px] text-zinc-500 mt-0.5">
-                          Vencimento todo dia <strong className="text-zinc-300">{debt.dueDay}</strong>
+                      </div>
+
+                      <h3 className="text-sm font-extrabold text-white">{debt.title}</h3>
+                      <p className="text-[10px] text-zinc-500 mt-0.5">
+                        Valor Inicial: {formatCurrency(debt.totalAmount)}
+                      </p>
+                    </div>
+
+                    <div className="pt-2 border-t border-zinc-800/80 flex items-center justify-between gap-2">
+                      <div>
+                        <p className="text-[10px] text-zinc-400 uppercase tracking-wider">Saldo Devedor</p>
+                        <p className={`text-base font-extrabold ${isQuitada ? 'text-emerald-400' : 'text-purple-400'}`}>
+                          {formatCurrency(remaining)}
                         </p>
                       </div>
 
-                      <div className="flex items-center gap-2 shrink-0">
-                        <div className="text-right">
-                          <p className="text-[10px] text-zinc-400">Total: {formatCurrency(debt.totalAmount)}</p>
-                          <p className="text-xs font-bold text-purple-400">
-                            Restante: {formatCurrency(remainingAmount)}
-                          </p>
-                        </div>
-                        <button
-                          onClick={() => deleteFinancialDebt(debt.id)}
-                          className="p-1.5 text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-all"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </div>
-
-                    <div className="space-y-1">
-                      <div className="flex justify-between text-[11px] text-zinc-400 font-medium">
-                        <span>
-                          Progresso ({paidParcelsCount}/{debt.installmentsCount} pagas)
-                        </span>
-                        <span>{progressPercent.toFixed(0)}%</span>
-                      </div>
-                      <div className="w-full bg-zinc-800 h-2 rounded-full overflow-hidden">
-                        <div
-                          className="bg-purple-500 h-full rounded-full transition-all"
-                          style={{ width: `${progressPercent}%` }}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-1.5 pt-1">
-                      <p className="text-[10px] font-semibold text-zinc-400 uppercase tracking-wider">
-                        Parcelas do Empréstimo
-                      </p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2">
-                        {debt.parcels.map((parcel) => (
-                          <div
-                            key={parcel.id}
-                            className={`flex items-center justify-between p-2.5 rounded-xl border text-xs transition-all ${
-                              parcel.paid
-                                ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-300'
-                                : 'bg-zinc-800/40 border-zinc-800 text-zinc-300'
-                            }`}
-                          >
-                            <div>
-                              <p className="font-bold text-xs">
-                                Parcela {parcel.number}/{debt.installmentsCount}
-                              </p>
-                              <p className="text-[10px] text-zinc-500">
-                                Vence: {formatDate(parcel.dueDate)}
-                              </p>
-                              <p className="font-semibold text-xs mt-0.5">{formatCurrency(parcel.amount)}</p>
-                            </div>
-
-                            <button
-                              onClick={() => toggleDebtParcelPayment(debt.id, parcel.id)}
-                              className={`flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-semibold transition-all ${
-                                parcel.paid
-                                  ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
-                                  : 'bg-purple-600 hover:bg-purple-700 text-white'
-                              }`}
-                            >
-                              {parcel.paid ? (
-                                <>
-                                  <CheckCircle2 size={13} /> Paga
-                                </>
-                              ) : (
-                                'Dar Baixa'
-                              )}
-                            </button>
-                          </div>
-                        ))}
-                      </div>
+                      <button
+                        onClick={() => openEditDebt(debt)}
+                        className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-md ${
+                          isQuitada
+                            ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+                            : 'bg-purple-600 hover:bg-purple-700 text-white shadow-purple-600/20'
+                        }`}
+                      >
+                        {isQuitada ? (
+                          <>
+                            <CheckCircle2 size={14} /> QUITADA
+                          </>
+                        ) : (
+                          <>
+                            <DollarSign size={14} /> Abater / Editar
+                          </>
+                        )}
+                      </button>
                     </div>
                   </div>
                 );
@@ -1145,10 +1101,10 @@ export function FinancialManagement() {
         </div>
       )}
 
-      {/* ─── MODAL: NOVO EMPRÉSTIMO / DÍVIDA CERASA ───────────────────────────── */}
+      {/* ─── MODAL: NOVA DÍVIDA (REFORMULADO: NOME INSTITUIÇÃO, MODELO DÍVIDA, VALOR) ───────── */}
       {isDebtModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/70 backdrop-blur-sm">
-          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl max-w-md w-full p-4 sm:p-6 space-y-3 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl max-w-md w-full p-4 sm:p-6 space-y-4 shadow-2xl relative">
             <button
               onClick={() => setIsDebtModalOpen(false)}
               className="absolute top-4 right-4 text-zinc-400 hover:text-white"
@@ -1158,105 +1114,45 @@ export function FinancialManagement() {
 
             <h2 className="text-base font-bold text-white flex items-center gap-2">
               <CreditCard className="text-purple-400" size={18} />
-              Novo Empréstimo / Dívida Cerasa
+              Nova Dívida / Empréstimo
             </h2>
 
             <form onSubmit={handleSaveDebt} className="space-y-3">
               <div>
-                <label className="block text-xs font-medium text-zinc-400 mb-1">Nome da Dívida / Empréstimo</label>
+                <label className="block text-xs font-medium text-zinc-400 mb-1">Nome da Instituição / Credor</label>
                 <input
                   type="text"
                   required
-                  placeholder="Ex: Empréstimo Consignado, Cerasa, Nubank"
+                  placeholder="Ex: Nubank, Cerasa, Banco do Brasil, Amigo"
+                  value={debtCreditor}
+                  onChange={(e) => setDebtCreditor(e.target.value)}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-white focus:outline-none focus:border-purple-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-1">Modelo de Dívida</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: Empréstimo Consignado, Dívida Cerasa, Cartão de Crédito"
                   value={debtTitle}
                   onChange={(e) => setDebtTitle(e.target.value)}
                   className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-white focus:outline-none focus:border-purple-500"
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs font-medium text-zinc-400 mb-1">Banco / Credor</label>
-                  <input
-                    type="text"
-                    placeholder="Ex: Nubank, Caixa, Amigo"
-                    value={debtCreditor}
-                    onChange={(e) => setDebtCreditor(e.target.value)}
-                    className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-white focus:outline-none focus:border-purple-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-zinc-400 mb-1">Valor Total (R$)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    required
-                    placeholder="5000.00"
-                    value={debtTotalAmount}
-                    onChange={(e) => {
-                      setDebtTotalAmount(e.target.value);
-                      handleTotalOrCountChange(e.target.value, debtInstallmentsCount);
-                    }}
-                    className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-white focus:outline-none focus:border-purple-500"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs font-medium text-zinc-400 mb-1">Nº Parcelas</label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="120"
-                    required
-                    value={debtInstallmentsCount}
-                    onChange={(e) => {
-                      setDebtInstallmentsCount(e.target.value);
-                      handleTotalOrCountChange(debtTotalAmount, e.target.value);
-                    }}
-                    className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-white focus:outline-none focus:border-purple-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-zinc-400 mb-1">Valor Parcela (R$)</label>
-                  <input
-                    type="number"
-                    step="0.01"
-                    required
-                    value={debtInstallmentValue}
-                    onChange={(e) => setDebtInstallmentValue(e.target.value)}
-                    className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-white focus:outline-none focus:border-purple-500"
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="block text-xs font-medium text-zinc-400 mb-1">Dia Vencimento</label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="31"
-                    required
-                    value={debtDueDay}
-                    onChange={(e) => setDebtDueDay(e.target.value)}
-                    className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-white focus:outline-none focus:border-purple-500"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-xs font-medium text-zinc-400 mb-1">1ª Parcela Em</label>
-                  <input
-                    type="date"
-                    required
-                    value={debtFirstDueDate}
-                    onChange={(e) => setDebtFirstDueDate(e.target.value)}
-                    className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-white focus:outline-none focus:border-purple-500"
-                  />
-                </div>
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-1">Valor Total da Dívida (R$)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  required
+                  placeholder="5000.00"
+                  value={debtTotalAmount}
+                  onChange={(e) => setDebtTotalAmount(e.target.value)}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-white focus:outline-none focus:border-purple-500"
+                />
               </div>
 
               {/* Botões */}
@@ -1273,6 +1169,95 @@ export function FinancialManagement() {
                   className="px-4 py-2 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-600/20"
                 >
                   Salvar Dívida
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ─── MODAL: EDITAR / ABATER DÍVIDA (PAGAMENTO PARCIAL OU REAJUSTE DO VALOR) ─── */}
+      {editingDebt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/70 backdrop-blur-sm">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl max-w-md w-full p-4 sm:p-6 space-y-4 shadow-2xl relative">
+            <button
+              onClick={() => setEditingDebt(null)}
+              className="absolute top-4 right-4 text-zinc-400 hover:text-white"
+            >
+              <X size={18} />
+            </button>
+
+            <h2 className="text-base font-bold text-white flex items-center gap-2">
+              <Edit2 className="text-purple-400" size={18} />
+              Abater / Editar Dívida ({editingDebt.creditor})
+            </h2>
+
+            <form onSubmit={handleSaveDebtEdit} className="space-y-3">
+              {/* Abater Pagamento Parcial */}
+              <div className="p-3 bg-purple-950/20 border border-purple-500/30 rounded-xl space-y-2">
+                <label className="block text-xs font-bold text-purple-300">
+                  ⚡ Pagamento Parcial / Abater Valor (R$)
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="Ex: 200,00"
+                    value={amortizeAmount}
+                    onChange={(e) => setAmortizeAmount(e.target.value)}
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-white focus:outline-none focus:border-purple-500"
+                  />
+                </div>
+                <p className="text-[10px] text-zinc-400">
+                  Digite quanto você pagou agora para descontar automaticamente do saldo.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-1">Nome da Instituição</label>
+                <input
+                  type="text"
+                  value={editCreditor}
+                  onChange={(e) => setEditCreditor(e.target.value)}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-white focus:outline-none focus:border-purple-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-1">Modelo de Dívida</label>
+                <input
+                  type="text"
+                  value={editTitle}
+                  onChange={(e) => setEditTitle(e.target.value)}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-white focus:outline-none focus:border-purple-500"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-1">Saldo Devedor Restante (R$)</label>
+                <input
+                  type="number"
+                  step="0.01"
+                  value={editRemainingAmount}
+                  onChange={(e) => setEditRemainingAmount(e.target.value)}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-xs sm:text-sm font-bold text-purple-400 focus:outline-none focus:border-purple-500"
+                />
+              </div>
+
+              {/* Botões */}
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingDebt(null)}
+                  className="px-3 py-2 rounded-xl text-xs font-medium text-zinc-400 hover:bg-zinc-800"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-600/20"
+                >
+                  Salvar Alterações
                 </button>
               </div>
             </form>

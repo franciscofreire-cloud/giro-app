@@ -185,16 +185,17 @@ export interface FinancialDebtParcel {
 
 export interface FinancialDebt {
   id: string;
-  title: string;          // Ex: Empréstimo Pessoal, Financiamento, Dívida Cartão
-  creditor: string;       // Ex: Banco Santander, Nubank, Amigo
-  totalAmount: number;
-  installmentsCount: number;
-  installmentValue: number;
-  dueDay: number;         // Dia do mês (1-31)
-  firstDueDate: string;   // YYYY-MM-DD
+  title: string;          // Modelo de Dívida (ex: Consignado, Acordo Cerasa, Cartão)
+  creditor: string;       // Nome da Instituição (ex: Nubank, Banco do Brasil)
+  totalAmount: number;    // Valor Inicial
+  remainingAmount?: number; // Valor Restante (editável ao ir pagando aos poucos)
+  installmentsCount?: number;
+  installmentValue?: number;
+  dueDay?: number;         // Dia do mês (1-31)
+  firstDueDate?: string;   // YYYY-MM-DD
   notes?: string;
   createdAt: string;
-  parcels: FinancialDebtParcel[];
+  parcels?: FinancialDebtParcel[];
 }
 
 export const FINANCIAL_CATEGORY_LABELS: Record<string, string> = {

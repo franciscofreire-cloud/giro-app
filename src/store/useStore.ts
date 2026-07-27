@@ -40,6 +40,7 @@ interface StoreState {
   toggleTransactionPaid: (id: string) => Promise<void>;
   updateTransactionStatus: (id: string, status: 'paga' | 'pendente' | 'vencida' | 'atrasada') => Promise<void>;
   addFinancialDebt: (debt: FinancialDebt) => Promise<void>;
+  updateFinancialDebt: (id: string, patch: Partial<FinancialDebt>) => Promise<void>;
   deleteFinancialDebt: (id: string) => Promise<void>;
   clearAllDebts: () => Promise<void>;
   clearPendingDebts: () => Promise<void>;
@@ -694,6 +695,23 @@ export const useStore = create<StoreState>()((set, get) => ({
     }
   },
 
+  updateFinancialDebt: async (id, patch) => {
+    const previous = get().financialDebts;
+    const updated = previous.map((d) => (d.id === id ? { ...d, ...patch } : d));
+    set({ financialDebts: updated });
+    try {
+      if (supabase) {
+        await supabase.from('settings').upsert({
+          key: 'financial_debts',
+          value: JSON.stringify(updated),
+        });
+      }
+    } catch (e) {
+      console.error('Erro ao atualizar dívida:', e);
+      set({ financialDebts: previous });
+    }
+  },
+
   deleteFinancialDebt: async (id) => {
     const previous = get().financialDebts;
     const updated = previous.filter((d) => d.id !== id);
@@ -729,7 +747,7 @@ export const useStore = create<StoreState>()((set, get) => ({
 
   clearPendingDebts: async () => {
     const previous = get().financialDebts;
-    const updated = previous.filter((d) => d.parcels.every((p) => p.paid));
+    const updated = previous.filter((d) => d.parcels?.every((p) => p.paid));
     set({ financialDebts: updated });
     try {
       if (supabase) {
@@ -752,7 +770,7 @@ export const useStore = create<StoreState>()((set, get) => ({
 
     const updated = previous.map((d) => {
       if (d.id !== debtId) return d;
-      const updatedParcels = d.parcels.map((parcel) => {
+      const updatedParcels = (d.parcels || []).map((parcel) => {
         if (parcel.id !== parcelId) return parcel;
         const newPaid = !parcel.paid;
 
