@@ -187,7 +187,7 @@ export function Installments() {
   }
 
   return (
-    <div className="flex flex-col min-h-full pb-24 md:pb-8">
+    <div className="flex flex-col min-h-full pb-6">
       <TopBar
         title="Itens Parcelados"
         subtitle="Controle de compras em parcelas"

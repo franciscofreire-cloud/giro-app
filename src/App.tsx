@@ -43,15 +43,14 @@ export default function App() {
 
   return (
     <BrowserRouter>
-      <div className="flex h-full bg-zinc-950">
+      <div className="min-h-screen bg-zinc-950 flex flex-col md:flex-row text-white selection:bg-emerald-500 selection:text-white">
         {/* Desktop sidebar */}
         <SideNav />
 
         {/* Main content area */}
-        {/* md:ml-60 → offset for the sidebar on desktop */}
-        <div className="flex flex-col flex-1 min-h-full md:ml-60">
-          <main className="flex-1 overflow-y-auto overflow-x-hidden">
-            {/* Inner container: full width on desktop, max-w on mobile content forms */}
+        <div className="flex-1 flex flex-col min-h-screen md:ml-60 pb-20 md:pb-0">
+          <main className="flex-1 overflow-x-hidden">
+            {/* Inner container: full width on desktop */}
             <div className="w-full">
               <Routes>
                 <Route path="/" element={<Dashboard />} />

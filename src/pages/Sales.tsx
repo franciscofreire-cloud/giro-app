@@ -25,7 +25,7 @@ export function Sales() {
   const totalRevenue = sales.reduce((acc, s) => acc + s.salePrice, 0);
 
   return (
-    <div className="flex flex-col min-h-full pb-24 md:pb-6">
+    <div className="flex flex-col min-h-full pb-6">
       <TopBar
         title="Vendas"
         subtitle={`${sales.length} vendas registradas`}

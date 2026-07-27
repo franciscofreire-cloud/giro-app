@@ -41,7 +41,7 @@ export function Dashboard() {
   const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
 
   return (
-    <div className="flex flex-col min-h-full pb-24 md:pb-6 relative">
+    <div className="flex flex-col min-h-full pb-6 relative">
       {/* Header */}
       <div className="px-4 md:px-8 pt-6 pb-4 flex items-center justify-between gap-4">
         <div className="space-y-1">

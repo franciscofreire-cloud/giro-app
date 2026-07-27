@@ -47,7 +47,7 @@ export function Profile() {
   }
 
   return (
-    <div className="flex flex-col min-h-full pb-24 md:pb-6">
+    <div className="flex flex-col min-h-full pb-6">
       <TopBar title="Perfil" subtitle="Configurações da loja" />
 
       <div className="px-4 md:px-0 py-4 md:py-8 space-y-5 md:max-w-2xl md:mx-auto w-full">

@@ -202,7 +202,7 @@ export function FinancialManagement() {
   };
 
   return (
-    <div className="space-y-4 sm:space-y-6 pb-28 pt-3 px-3 sm:px-6 max-w-7xl mx-auto overflow-x-hidden">
+    <div className="space-y-4 sm:space-y-6 pb-6 pt-3 px-3 sm:px-6 max-w-7xl mx-auto overflow-x-hidden">
       {/* ─── Header & Quick Actions ────────────────────────────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-zinc-900/90 p-4 sm:p-5 rounded-2xl border border-zinc-800 backdrop-blur-md">
         <div className="flex items-center gap-3">

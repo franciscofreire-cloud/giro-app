@@ -36,7 +36,7 @@ export function ItemDetail() {
     : 0;
 
   return (
-    <div className="flex flex-col min-h-full pb-24 md:pb-6">
+    <div className="flex flex-col min-h-full pb-6">
       <TopBar
         title={item.name}
         showBack

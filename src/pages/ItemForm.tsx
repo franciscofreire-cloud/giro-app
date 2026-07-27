@@ -122,7 +122,7 @@ export function ItemForm() {
   }
 
   return (
-    <div className="flex flex-col min-h-full pb-24 md:pb-6">
+    <div className="flex flex-col min-h-full pb-6">
       <TopBar
         title={isEditing ? 'Editar Item' : 'Novo Item'}
         showBack

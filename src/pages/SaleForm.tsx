@@ -115,7 +115,7 @@ export function SaleForm() {
   const isProfitable = profit > 0;
 
   return (
-    <div className="flex flex-col min-h-full pb-24 md:pb-6">
+    <div className="flex flex-col min-h-full pb-6">
       <TopBar title="Registrar Venda" showBack />
 
       <div className="px-4 md:px-0 py-4 md:py-8 space-y-4 md:max-w-xl md:mx-auto w-full">
