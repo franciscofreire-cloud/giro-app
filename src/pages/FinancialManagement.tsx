@@ -310,9 +310,6 @@ export function FinancialManagement() {
                 Pessoal
               </span>
             </h1>
-            <p className="text-xs text-zinc-400">
-              Salário, bicos, gastos diários, contas recorrentes e dívidas.
-            </p>
           </div>
         </div>
 
@@ -595,7 +592,6 @@ export function FinancialManagement() {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-sm sm:text-base font-bold text-white">Minhas Receitas</h2>
-              <p className="text-[11px] text-zinc-400">Tudo aquilo que você ganha: Salário, bicos, renda extra.</p>
             </div>
             <button
               onClick={() => openNewTransaction('income')}
@@ -651,7 +647,6 @@ export function FinancialManagement() {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-sm sm:text-base font-bold text-white">Gastos Diários</h2>
-              <p className="text-[11px] text-zinc-400">Gastos do dia a dia: R$ 20 gasolina, R$ 10 almoço, etc.</p>
             </div>
             <button
               onClick={() => openNewTransaction('expense')}
@@ -707,9 +702,6 @@ export function FinancialManagement() {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-sm sm:text-base font-bold text-white">Contas Recorrentes Mensais</h2>
-              <p className="text-[11px] text-zinc-400">
-                Muda automaticamente para <strong className="text-rose-400">ATRASADA</strong> se passar do dia de vencimento!
-              </p>
             </div>
             <button
               onClick={() => openNewTransaction('recurring_bill')}
@@ -814,9 +806,6 @@ export function FinancialManagement() {
           <div className="flex items-center justify-between">
             <div>
               <h2 className="text-sm sm:text-base font-bold text-white">Dívidas & Empréstimos</h2>
-              <p className="text-[11px] text-zinc-400">
-                Consignados, dívidas Cerasa, bancos e empréstimos parcelados.
-              </p>
             </div>
             <button
               onClick={() => setIsDebtModalOpen(true)}
