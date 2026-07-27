@@ -1,10 +1,11 @@
+import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Cell,
 } from 'recharts';
 import {
-  Wallet, TrendingUp, Package, ShoppingBag, ChevronRight, Zap,
+  Wallet, TrendingUp, Package, ShoppingBag, ChevronRight, Zap, MoreVertical, CreditCard, BarChart2, X
 } from 'lucide-react';
 import { useDashboard } from '@/hooks/useDashboard';
 import { useStore } from '@/store/useStore';
@@ -28,6 +29,8 @@ function ChartTooltip({ active, payload, label }: any) {
 export function Dashboard() {
   const navigate = useNavigate();
   const settings = useStore((s) => s.settings);
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
   const {
     investedCapital, stockCount, monthlyRevenue,
     monthlyProfit, recentSales, monthlyProfitChart,
@@ -38,7 +41,7 @@ export function Dashboard() {
   const greeting = hour < 12 ? 'Bom dia' : hour < 18 ? 'Boa tarde' : 'Boa noite';
 
   return (
-    <div className="flex flex-col min-h-full pb-24 md:pb-6">
+    <div className="flex flex-col min-h-full pb-24 md:pb-6 relative">
       {/* Header */}
       <div className="px-4 md:px-8 pt-6 pb-4 flex items-center justify-between gap-4">
         <div className="space-y-1">
@@ -47,6 +50,73 @@ export function Dashboard() {
           <p className="text-xs text-zinc-600">
             {now.toLocaleDateString('pt-BR', { weekday: 'long', day: 'numeric', month: 'long' })}
           </p>
+        </div>
+
+        {/* 3 Pontinhos no topo apenas na aba Início (Mobile md:hidden) */}
+        <div className="md:hidden relative">
+          <button
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            className="p-2.5 rounded-xl bg-zinc-900 border border-zinc-800 text-zinc-300 hover:text-white active:scale-95 transition-all shadow-md"
+            title="Outras Opções"
+          >
+            <MoreVertical size={20} />
+          </button>
+
+          {/* Popover Menu */}
+          {isMenuOpen && (
+            <div className="absolute right-0 top-12 z-50 w-56 bg-zinc-900 border border-zinc-800 rounded-2xl shadow-2xl p-2 animate-in fade-in zoom-in-95 duration-150">
+              <div className="flex items-center justify-between px-3 py-2 border-b border-zinc-800 mb-1">
+                <span className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Mais Opções</span>
+                <button
+                  onClick={() => setIsMenuOpen(false)}
+                  className="text-zinc-500 hover:text-white p-1"
+                >
+                  <X size={14} />
+                </button>
+              </div>
+
+              <div className="space-y-1">
+                <button
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    navigate('/estoque');
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-zinc-300 hover:bg-zinc-800 hover:text-white transition-all text-left"
+                >
+                  <div className="p-1.5 rounded-lg bg-emerald-500/10 text-emerald-400">
+                    <Package size={16} />
+                  </div>
+                  Estoque de Itens
+                </button>
+
+                <button
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    navigate('/parcelados');
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-zinc-300 hover:bg-zinc-800 hover:text-white transition-all text-left"
+                >
+                  <div className="p-1.5 rounded-lg bg-purple-500/10 text-purple-400">
+                    <CreditCard size={16} />
+                  </div>
+                  Compras Parceladas
+                </button>
+
+                <button
+                  onClick={() => {
+                    setIsMenuOpen(false);
+                    navigate('/relatorios');
+                  }}
+                  className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-xs font-semibold text-zinc-300 hover:bg-zinc-800 hover:text-white transition-all text-left"
+                >
+                  <div className="p-1.5 rounded-lg bg-blue-500/10 text-blue-400">
+                    <BarChart2 size={16} />
+                  </div>
+                  Relatórios e Vendas
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 

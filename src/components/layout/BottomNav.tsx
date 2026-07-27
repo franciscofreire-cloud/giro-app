@@ -3,7 +3,8 @@ import { Home, Package, ShoppingBag, BarChart2, CreditCard, User, Wallet, Zap } 
 import { cn } from '@/lib/utils';
 import { useStore } from '@/store/useStore';
 
-const tabs = [
+// Abas completas no Desktop (SideNav)
+const desktopTabs = [
   { to: '/', label: 'Início', icon: Home },
   { to: '/estoque', label: 'Estoque', icon: Package },
   { to: '/vendas', label: 'Vendas', icon: ShoppingBag },
@@ -13,6 +14,13 @@ const tabs = [
   { to: '/financeiro', label: 'Financeiro', icon: Wallet },
 ];
 
+// Abas exclusivas do Rodapé Mobile (BottomNav)
+const mobileTabs = [
+  { to: '/', label: 'Início', icon: Home },
+  { to: '/vendas', label: 'Vendas', icon: ShoppingBag },
+  { to: '/perfil', label: 'Perfil', icon: User },
+  { to: '/financeiro', label: 'Financeiro', icon: Wallet },
+];
 
 // ─── Sidebar (Desktop) ────────────────────────────────────────────────────────
 export function SideNav() {
@@ -34,7 +42,7 @@ export function SideNav() {
 
       {/* Nav links */}
       <nav className="flex-1 px-3 py-4 space-y-1">
-        {tabs.map(({ to, label, icon: Icon }) => {
+        {desktopTabs.map(({ to, label, icon: Icon }) => {
           const active =
             to === '/' ? location.pathname === '/' : location.pathname.startsWith(to);
           return (
@@ -72,9 +80,9 @@ export function BottomNav() {
   const location = useLocation();
 
   return (
-    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 glass border-t border-zinc-800 bottom-nav-safe">
+    <nav className="md:hidden fixed bottom-0 left-0 right-0 z-50 glass border-t border-zinc-800 bottom-nav-safe bg-zinc-950/95 backdrop-blur-lg">
       <div className="flex items-stretch justify-around">
-        {tabs.map(({ to, label, icon: Icon }) => {
+        {mobileTabs.map(({ to, label, icon: Icon }) => {
           const active =
             to === '/' ? location.pathname === '/' : location.pathname.startsWith(to);
           return (
@@ -82,8 +90,8 @@ export function BottomNav() {
               key={to}
               to={to}
               className={cn(
-                'flex flex-col items-center justify-center gap-1 px-2 py-3 flex-1 transition-all duration-200',
-                active ? 'text-emerald-400' : 'text-zinc-500 hover:text-zinc-300'
+                'flex flex-col items-center justify-center gap-1 px-2 py-2.5 flex-1 transition-all duration-200',
+                active ? 'text-emerald-400 font-semibold' : 'text-zinc-500 hover:text-zinc-300'
               )}
             >
               <div className={cn(
@@ -95,7 +103,7 @@ export function BottomNav() {
                   <span className="absolute -bottom-1 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-emerald-400" />
                 )}
               </div>
-              <span className={cn('text-[10px] font-medium tracking-wide', active ? 'text-emerald-400' : 'text-zinc-500')}>
+              <span className={cn('text-[10px] tracking-wide', active ? 'text-emerald-400 font-bold' : 'text-zinc-500')}>
                 {label}
               </span>
             </NavLink>
@@ -105,3 +113,4 @@ export function BottomNav() {
     </nav>
   );
 }
+
