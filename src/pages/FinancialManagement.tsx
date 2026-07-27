@@ -33,12 +33,28 @@ import {
   CheckSquare,
 } from 'lucide-react';
 
+// Helper para calcular status automático de contas recorrentes
+function getBillStatus(tx: FinancialTransaction): 'paga' | 'pendente' | 'atrasada' {
+  if (tx.status === 'paga' || tx.paid === true) return 'paga';
+  if (tx.status === 'atrasada') return 'atrasada';
+  if (tx.status === 'pendente') {
+    const today = new Date().toISOString().split('T')[0];
+    if (tx.date < today) return 'atrasada';
+    return 'pendente';
+  }
+  // Default automático se não especificado
+  const today = new Date().toISOString().split('T')[0];
+  if (tx.date < today) return 'atrasada';
+  return 'pendente';
+}
+
 export function FinancialManagement() {
   const financialTransactions = useStore((s) => s.financialTransactions);
   const financialDebts = useStore((s) => s.financialDebts);
   const addFinancialTransaction = useStore((s) => s.addFinancialTransaction);
   const deleteFinancialTransaction = useStore((s) => s.deleteFinancialTransaction);
   const toggleTransactionPaid = useStore((s) => s.toggleTransactionPaid);
+  const updateTransactionStatus = useStore((s) => s.updateTransactionStatus);
   const addFinancialDebt = useStore((s) => s.addFinancialDebt);
   const deleteFinancialDebt = useStore((s) => s.deleteFinancialDebt);
   const toggleDebtParcelPayment = useStore((s) => s.toggleDebtParcelPayment);
@@ -48,7 +64,6 @@ export function FinancialManagement() {
 
   // Modals state
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
-  const [modalDefaultType, setModalDefaultType] = useState<TransactionType>('income');
   const [isDebtModalOpen, setIsDebtModalOpen] = useState(false);
 
   // Filter Month
@@ -62,6 +77,7 @@ export function FinancialManagement() {
   const [txCategory, setTxCategory] = useState<FinancialCategory | string>('salario');
   const [txDate, setTxDate] = useState(new Date().toISOString().split('T')[0]);
   const [txDueDay, setTxDueDay] = useState('5');
+  const [txStatus, setTxStatus] = useState<'paga' | 'pendente' | 'atrasada'>('pendente');
   const [txIsRecurring, setTxIsRecurring] = useState(false);
   const [txNotes, setTxNotes] = useState('');
 
@@ -95,6 +111,9 @@ export function FinancialManagement() {
         );
 
         if (!instanceExists && templateMonth !== selectedMonth) {
+          const today = new Date().toISOString().split('T')[0];
+          const autoStatus = expectedDate < today ? 'atrasada' : 'pendente';
+
           // Cria automaticamente a instância da conta para o mês selecionado
           const newInstance: FinancialTransaction = {
             id: 'tx_rec_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
@@ -105,6 +124,7 @@ export function FinancialManagement() {
             date: expectedDate,
             dueDay: template.dueDay || 1,
             isRecurring: true,
+            status: autoStatus,
             paid: false,
             notes: template.notes,
             createdAt: new Date().toISOString(),
@@ -178,6 +198,7 @@ export function FinancialManagement() {
 
     const dueDayNum = parseInt(txDueDay) || 1;
     const isRec = txType === 'recurring_bill';
+    const isPaid = txType === 'income' || txStatus === 'paga';
 
     const newTx: FinancialTransaction = {
       id: 'tx_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
@@ -188,7 +209,8 @@ export function FinancialManagement() {
       date: txDate,
       dueDay: dueDayNum,
       isRecurring: isRec,
-      paid: txType === 'income' ? true : false,
+      status: txType === 'recurring_bill' ? txStatus : isPaid ? 'paga' : 'pendente',
+      paid: isPaid,
       notes: txNotes.trim() || undefined,
       createdAt: new Date().toISOString(),
     };
@@ -265,6 +287,7 @@ export function FinancialManagement() {
     } else if (type === 'recurring_bill') {
       setTxCategory('moradia');
       setTxIsRecurring(true);
+      setTxStatus('pendente');
     } else {
       setTxCategory('alimentacao');
       setTxIsRecurring(false);
@@ -459,60 +482,77 @@ export function FinancialManagement() {
                 </div>
               ) : (
                 <div className="space-y-2">
-                  {monthTransactions.map((tx) => (
-                    <div
-                      key={tx.id}
-                      className="flex items-center justify-between p-3 rounded-xl bg-zinc-800/40 hover:bg-zinc-800/70 border border-zinc-800/60 transition-all gap-2"
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <div
-                          className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
-                            tx.type === 'income'
-                              ? 'bg-emerald-500/10 text-emerald-400'
-                              : tx.type === 'recurring_bill'
-                              ? 'bg-amber-500/10 text-amber-400'
-                              : 'bg-rose-500/10 text-rose-400'
-                          }`}
-                        >
-                          {tx.type === 'income' ? (
-                            <ArrowUpRight size={16} />
-                          ) : tx.type === 'recurring_bill' ? (
-                            <Repeat size={16} />
-                          ) : (
-                            <ArrowDownRight size={16} />
-                          )}
-                        </div>
-                        <div className="min-w-0">
-                          <p className="text-xs sm:text-sm font-semibold text-white truncate">{tx.title}</p>
-                          <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-zinc-500 mt-0.5">
-                            <span className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 font-medium">
-                              {FINANCIAL_CATEGORY_LABELS[tx.category] || tx.category}
-                            </span>
-                            <span>• {formatDate(tx.date)}</span>
-                            {tx.type === 'recurring_bill' && (
-                              <span className="text-amber-400 text-[10px]">↻ Mensal</span>
+                  {monthTransactions.map((tx) => {
+                    const st = tx.type === 'recurring_bill' ? getBillStatus(tx) : tx.paid ? 'paga' : 'pendente';
+                    return (
+                      <div
+                        key={tx.id}
+                        className="flex items-center justify-between p-3 rounded-xl bg-zinc-800/40 hover:bg-zinc-800/70 border border-zinc-800/60 transition-all gap-2"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div
+                            className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 ${
+                              tx.type === 'income'
+                                ? 'bg-emerald-500/10 text-emerald-400'
+                                : tx.type === 'recurring_bill'
+                                ? st === 'paga'
+                                  ? 'bg-emerald-500/10 text-emerald-400'
+                                  : st === 'atrasada'
+                                  ? 'bg-rose-500/10 text-rose-400'
+                                  : 'bg-amber-500/10 text-amber-400'
+                                : 'bg-rose-500/10 text-rose-400'
+                            }`}
+                          >
+                            {tx.type === 'income' ? (
+                              <ArrowUpRight size={16} />
+                            ) : tx.type === 'recurring_bill' ? (
+                              <Repeat size={16} />
+                            ) : (
+                              <ArrowDownRight size={16} />
                             )}
                           </div>
+                          <div className="min-w-0">
+                            <p className="text-xs sm:text-sm font-semibold text-white truncate">{tx.title}</p>
+                            <div className="flex flex-wrap items-center gap-1.5 text-[10px] text-zinc-500 mt-0.5">
+                              <span className="px-1.5 py-0.5 rounded bg-zinc-800 text-zinc-300 font-medium">
+                                {FINANCIAL_CATEGORY_LABELS[tx.category] || tx.category}
+                              </span>
+                              <span>• {formatDate(tx.date)}</span>
+                              {tx.type === 'recurring_bill' && (
+                                <span
+                                  className={`px-1.5 py-0.5 rounded font-bold uppercase ${
+                                    st === 'paga'
+                                      ? 'bg-emerald-500/20 text-emerald-400'
+                                      : st === 'atrasada'
+                                      ? 'bg-rose-500/20 text-rose-400 animate-pulse'
+                                      : 'bg-amber-500/20 text-amber-400'
+                                  }`}
+                                >
+                                  {st}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span
+                            className={`text-xs sm:text-sm font-bold ${
+                              tx.type === 'income' ? 'text-emerald-400' : 'text-rose-400'
+                            }`}
+                          >
+                            {tx.type === 'income' ? '+' : '-'} {formatCurrency(tx.amount)}
+                          </span>
+                          <button
+                            onClick={() => deleteFinancialTransaction(tx.id)}
+                            className="p-1.5 text-zinc-500 hover:text-rose-400 rounded-lg hover:bg-rose-500/10 transition-all"
+                          >
+                            <Trash2 size={13} />
+                          </button>
                         </div>
                       </div>
-
-                      <div className="flex items-center gap-2 shrink-0">
-                        <span
-                          className={`text-xs sm:text-sm font-bold ${
-                            tx.type === 'income' ? 'text-emerald-400' : 'text-rose-400'
-                          }`}
-                        >
-                          {tx.type === 'income' ? '+' : '-'} {formatCurrency(tx.amount)}
-                        </span>
-                        <button
-                          onClick={() => deleteFinancialTransaction(tx.id)}
-                          className="p-1.5 text-zinc-500 hover:text-rose-400 rounded-lg hover:bg-rose-500/10 transition-all"
-                        >
-                          <Trash2 size={13} />
-                        </button>
-                      </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>
@@ -668,7 +708,7 @@ export function FinancialManagement() {
             <div>
               <h2 className="text-sm sm:text-base font-bold text-white">Contas Recorrentes Mensais</h2>
               <p className="text-[11px] text-zinc-400">
-                Contas fixas que chegam todo mês. Todo dia 1 aparecem automaticamente!
+                Muda automaticamente para <strong className="text-rose-400">ATRASADA</strong> se passar do dia de vencimento!
               </p>
             </div>
             <button
@@ -680,53 +720,84 @@ export function FinancialManagement() {
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-            {monthRecurringBills.map((tx) => (
-              <div
-                key={tx.id}
-                className={`p-3.5 rounded-2xl border flex items-center justify-between transition-all ${
-                  tx.paid
-                    ? 'bg-emerald-950/20 border-emerald-500/30'
-                    : 'bg-zinc-900/90 border-amber-500/30'
-                }`}
-              >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className={`p-2 rounded-xl shrink-0 ${tx.paid ? 'bg-emerald-500/10 text-emerald-400' : 'bg-amber-500/10 text-amber-400'}`}>
-                    <Repeat size={18} />
+            {monthRecurringBills.map((tx) => {
+              const currentStatus = getBillStatus(tx);
+              return (
+                <div
+                  key={tx.id}
+                  className={`p-3.5 rounded-2xl border flex items-center justify-between transition-all ${
+                    currentStatus === 'paga'
+                      ? 'bg-emerald-950/20 border-emerald-500/30'
+                      : currentStatus === 'atrasada'
+                      ? 'bg-rose-950/25 border-rose-500/40'
+                      : 'bg-zinc-900/90 border-amber-500/30'
+                  }`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <div
+                      className={`p-2 rounded-xl shrink-0 ${
+                        currentStatus === 'paga'
+                          ? 'bg-emerald-500/10 text-emerald-400'
+                          : currentStatus === 'atrasada'
+                          ? 'bg-rose-500/10 text-rose-400'
+                          : 'bg-amber-500/10 text-amber-400'
+                      }`}
+                    >
+                      {currentStatus === 'paga' ? (
+                        <CheckCircle2 size={18} />
+                      ) : currentStatus === 'atrasada' ? (
+                        <AlertTriangle size={18} />
+                      ) : (
+                        <Repeat size={18} />
+                      )}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-xs sm:text-sm font-bold text-white truncate">{tx.title}</p>
+                      <p className="text-[10px] text-zinc-400 mt-0.5">
+                        Vence dia <strong className="text-zinc-200">{tx.dueDay || 1}</strong> • {formatCurrency(tx.amount)}
+                      </p>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-xs sm:text-sm font-bold text-white truncate">{tx.title}</p>
-                    <p className="text-[10px] text-zinc-400 mt-0.5">
-                      Vence dia <strong className="text-zinc-200">{tx.dueDay || 1}</strong> • {formatCurrency(tx.amount)}
-                    </p>
-                  </div>
-                </div>
 
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    onClick={() => toggleTransactionPaid(tx.id)}
-                    className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold transition-all ${
-                      tx.paid
-                        ? 'bg-emerald-500/20 text-emerald-400 hover:bg-emerald-500/30'
-                        : 'bg-amber-500 hover:bg-amber-600 text-zinc-950'
-                    }`}
-                  >
-                    {tx.paid ? (
-                      <>
-                        <CheckCircle2 size={13} /> Paga
-                      </>
-                    ) : (
-                      'Dar Baixa'
-                    )}
-                  </button>
-                  <button
-                    onClick={() => deleteFinancialTransaction(tx.id)}
-                    className="text-zinc-500 hover:text-rose-400 p-1"
-                  >
-                    <Trash2 size={13} />
-                  </button>
+                  <div className="flex items-center gap-2 shrink-0">
+                    {/* Seletor direto de Status: PAGA / PENDENTE / ATRASADA */}
+                    <select
+                      value={currentStatus}
+                      onChange={(e) =>
+                        updateTransactionStatus(
+                          tx.id,
+                          e.target.value as 'paga' | 'pendente' | 'atrasada'
+                        )
+                      }
+                      className={`px-2.5 py-1 rounded-xl text-xs font-bold border focus:outline-none cursor-pointer transition-all ${
+                        currentStatus === 'paga'
+                          ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
+                          : currentStatus === 'atrasada'
+                          ? 'bg-rose-500/20 text-rose-400 border-rose-500/40 animate-pulse'
+                          : 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+                      }`}
+                    >
+                      <option value="pendente" className="bg-zinc-900 text-amber-400 font-bold">
+                        ⏳ PENDENTE
+                      </option>
+                      <option value="paga" className="bg-zinc-900 text-emerald-400 font-bold">
+                        ✅ PAGA
+                      </option>
+                      <option value="atrasada" className="bg-zinc-900 text-rose-400 font-bold">
+                        🚨 ATRASADA
+                      </option>
+                    </select>
+
+                    <button
+                      onClick={() => deleteFinancialTransaction(tx.id)}
+                      className="text-zinc-500 hover:text-rose-400 p-1"
+                    >
+                      <Trash2 size={13} />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
 
             {monthRecurringBills.length === 0 && (
               <div className="col-span-full py-8 text-center text-zinc-500 text-xs bg-zinc-900/50 border border-zinc-800 rounded-2xl">
@@ -924,6 +995,7 @@ export function FinancialManagement() {
                     setTxType('recurring_bill');
                     setTxCategory('moradia');
                     setTxIsRecurring(true);
+                    setTxStatus('pendente');
                   }}
                   className={`py-1.5 text-[11px] font-bold rounded-lg transition-all ${
                     txType === 'recurring_bill' ? 'bg-amber-500 text-zinc-950 shadow' : 'text-zinc-400 hover:text-white'
@@ -983,8 +1055,8 @@ export function FinancialManagement() {
                 </div>
               </div>
 
-              {/* Data & Dia de Vencimento */}
-              <div className="grid grid-cols-2 gap-2">
+              {/* Data, Dia Vencimento & Status Inicial */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
                 <div>
                   <label className="block text-xs font-medium text-zinc-400 mb-1">Data</label>
                   <input
@@ -997,18 +1069,33 @@ export function FinancialManagement() {
                 </div>
 
                 {txType === 'recurring_bill' && (
-                  <div>
-                    <label className="block text-xs font-medium text-zinc-400 mb-1">Dia Vencimento (1-31)</label>
-                    <input
-                      type="number"
-                      min="1"
-                      max="31"
-                      required
-                      value={txDueDay}
-                      onChange={(e) => setTxDueDay(e.target.value)}
-                      className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-white focus:outline-none focus:border-amber-500"
-                    />
-                  </div>
+                  <>
+                    <div>
+                      <label className="block text-xs font-medium text-zinc-400 mb-1">Dia Venc. (1-31)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="31"
+                        required
+                        value={txDueDay}
+                        onChange={(e) => setTxDueDay(e.target.value)}
+                        className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-white focus:outline-none focus:border-amber-500"
+                      />
+                    </div>
+
+                    <div className="col-span-2 sm:col-span-1">
+                      <label className="block text-xs font-medium text-zinc-400 mb-1">Status Inicial</label>
+                      <select
+                        value={txStatus}
+                        onChange={(e) => setTxStatus(e.target.value as 'paga' | 'pendente' | 'atrasada')}
+                        className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-2 py-2 text-xs sm:text-sm font-bold text-white focus:outline-none focus:border-amber-500"
+                      >
+                        <option value="pendente">⏳ Pendente</option>
+                        <option value="paga">✅ Paga</option>
+                        <option value="atrasada">🚨 Atrasada</option>
+                      </select>
+                    </div>
+                  </>
                 )}
               </div>
 

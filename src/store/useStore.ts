@@ -38,6 +38,7 @@ interface StoreState {
   addFinancialTransaction: (transaction: FinancialTransaction) => Promise<void>;
   deleteFinancialTransaction: (id: string) => Promise<void>;
   toggleTransactionPaid: (id: string) => Promise<void>;
+  updateTransactionStatus: (id: string, status: 'paga' | 'pendente' | 'atrasada') => Promise<void>;
   addFinancialDebt: (debt: FinancialDebt) => Promise<void>;
   deleteFinancialDebt: (id: string) => Promise<void>;
   toggleDebtParcelPayment: (debtId: string, parcelId: string) => Promise<void>;
@@ -623,12 +624,14 @@ export const useStore = create<StoreState>()((set, get) => ({
 
   toggleTransactionPaid: async (id) => {
     const previous = get().financialTransactions;
-    const updated = previous.map((t) => {
+    const updated: FinancialTransaction[] = previous.map((t) => {
       if (t.id !== id) return t;
       const newPaid = !t.paid;
+      const newStatus: 'paga' | 'pendente' = newPaid ? 'paga' : 'pendente';
       return {
         ...t,
         paid: newPaid,
+        status: newStatus,
         paidDate: newPaid ? new Date().toISOString().split('T')[0] : undefined,
       };
     });
@@ -642,6 +645,32 @@ export const useStore = create<StoreState>()((set, get) => ({
       }
     } catch (e) {
       console.error('Erro ao alternar pagamento da transação:', e);
+      set({ financialTransactions: previous });
+    }
+  },
+
+  updateTransactionStatus: async (id, status) => {
+    const previous = get().financialTransactions;
+    const isPaid = status === 'paga';
+    const updated: FinancialTransaction[] = previous.map((t) => {
+      if (t.id !== id) return t;
+      return {
+        ...t,
+        status,
+        paid: isPaid,
+        paidDate: isPaid ? new Date().toISOString().split('T')[0] : undefined,
+      };
+    });
+    set({ financialTransactions: updated });
+    try {
+      if (supabase) {
+        await supabase.from('settings').upsert({
+          key: 'financial_transactions',
+          value: JSON.stringify(updated),
+        });
+      }
+    } catch (e) {
+      console.error('Erro ao atualizar status da transação:', e);
       set({ financialTransactions: previous });
     }
   },

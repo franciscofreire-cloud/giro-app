@@ -167,8 +167,9 @@ export interface FinancialTransaction {
   date: string;          // YYYY-MM-DD
   isRecurring?: boolean; // Se é gasto/conta recorrente que repete todo mês
   dueDay?: number;       // Dia do vencimento (1-31) para contas recorrentes
-  paid?: boolean;        // Se a conta recorrente ou gasto foi pago
+  paid?: boolean;        // Se a conta foi vaga
   paidDate?: string;
+  status?: 'paga' | 'pendente' | 'atrasada'; // Status explicito ou calculado da conta
   notes?: string;
   createdAt: string;
 }
