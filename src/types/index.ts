@@ -142,3 +142,69 @@ export interface InstallmentPurchase {
   payments: InstallmentPayment[];
 }
 
+// ─── Gestão Financeira Pessoal ───────────────────────────────────────────────
+export type TransactionType = 'income' | 'expense';
+
+export type FinancialCategory =
+  | 'salario'
+  | 'renda_extra'
+  | 'revenda'
+  | 'moradia'
+  | 'alimentacao'
+  | 'transporte'
+  | 'saude'
+  | 'lazer'
+  | 'educacao'
+  | 'emprestimo_parcela'
+  | 'outros';
+
+export interface FinancialTransaction {
+  id: string;
+  title: string;
+  amount: number;
+  type: TransactionType;
+  category: FinancialCategory | string;
+  date: string;          // YYYY-MM-DD
+  isRecurring?: boolean; // Se é gasto/salário recorrente todo mês
+  notes?: string;
+  createdAt: string;
+}
+
+export interface FinancialDebtParcel {
+  id: string;
+  number: number;
+  dueDate: string;       // YYYY-MM-DD
+  amount: number;
+  paid: boolean;
+  paidDate?: string;
+}
+
+export interface FinancialDebt {
+  id: string;
+  title: string;          // Ex: Empréstimo Pessoal, Financiamento, Dívida Cartão
+  creditor: string;       // Ex: Banco Santander, Nubank, Amigo
+  totalAmount: number;
+  installmentsCount: number;
+  installmentValue: number;
+  dueDay: number;         // Dia do mês (1-31)
+  firstDueDate: string;   // YYYY-MM-DD
+  notes?: string;
+  createdAt: string;
+  parcels: FinancialDebtParcel[];
+}
+
+export const FINANCIAL_CATEGORY_LABELS: Record<string, string> = {
+  salario: 'Salário Fixo',
+  renda_extra: 'Renda Extra',
+  revenda: 'Lucro da Revenda',
+  moradia: 'Moradia / Contas',
+  alimentacao: 'Alimentação / Mercado',
+  transporte: 'Transporte / Combustível',
+  saude: 'Saúde / Farmácia',
+  lazer: 'Lazer & Estilo de Vida',
+  educacao: 'Educação / Cursos',
+  emprestimo_parcela: 'Parcela de Empréstimo',
+  outros: 'Outros',
+};
+
+

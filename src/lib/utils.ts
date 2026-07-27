@@ -14,6 +14,8 @@ export function formatBRL(value: number): string {
   }).format(value);
 }
 
+export const formatCurrency = formatBRL;
+
 export function formatBRLCompact(value: number): string {
   if (Math.abs(value) >= 1000) {
     return new Intl.NumberFormat('pt-BR', {

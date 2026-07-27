@@ -101,9 +101,10 @@ VALUES (
 ) ON CONFLICT (email) DO NOTHING;
 */
 
--- ─── ITENS PARCELADOS ────────────────────────────────────────────────────────
--- Os itens parcelados são salvos automaticamente de forma reativa na tabela 'settings'
--- sob a chave 'installment_purchases', contendo a lista completa de compras parceladas,
--- valor total, valor de cada parcela, vencimentos mensais e status de baixa (paga/pendente).
-
+-- ─── ITENS PARCELADOS E GESTÃO FINANCEIRA ─────────────────────────────────────
+-- Os itens parcelados e dados de gestão financeira são salvos automaticamente
+-- de forma reativa na tabela 'settings' sob as chaves:
+-- 1. 'installment_purchases': compras parceladas do estoque.
+-- 2. 'financial_transactions': extrato de receitas (salário/renda extra) e gastos fixos/diários.
+-- 3. 'financial_debts': empréstimos e dívidas parceladas pessoais com acompanhamento de parcelas.
 

@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { Home, Package, ShoppingBag, BarChart2, CreditCard, User, Zap } from 'lucide-react';
+import { Home, Package, ShoppingBag, BarChart2, CreditCard, User, Wallet, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStore } from '@/store/useStore';
 
@@ -10,6 +10,7 @@ const tabs = [
   { to: '/parcelados', label: 'Parcelados', icon: CreditCard },
   { to: '/relatorios', label: 'Relatórios', icon: BarChart2 },
   { to: '/perfil', label: 'Perfil', icon: User },
+  { to: '/financeiro', label: 'Financeiro', icon: Wallet },
 ];
 
 

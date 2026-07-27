@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Item, Sale, AppSettings, User, UserSession, InstallmentPurchase } from '@/types';
+import { Item, Sale, AppSettings, User, UserSession, InstallmentPurchase, FinancialTransaction, FinancialDebt } from '@/types';
 import { createClient } from '@supabase/supabase-js';
 import { hashSHA256 } from '@/lib/utils';
 
@@ -17,6 +17,10 @@ interface StoreState {
   // Installments State
   installmentPurchases: InstallmentPurchase[];
 
+  // Financial Management State
+  financialTransactions: FinancialTransaction[];
+  financialDebts: FinancialDebt[];
+
   // Lifecycle
   loadData: () => Promise<void>;
 
@@ -29,6 +33,13 @@ interface StoreState {
   addInstallmentPurchase: (purchase: InstallmentPurchase) => Promise<void>;
   deleteInstallmentPurchase: (id: string) => Promise<void>;
   toggleInstallmentPayment: (purchaseId: string, paymentId: string) => Promise<void>;
+
+  // Financial actions
+  addFinancialTransaction: (transaction: FinancialTransaction) => Promise<void>;
+  deleteFinancialTransaction: (id: string) => Promise<void>;
+  addFinancialDebt: (debt: FinancialDebt) => Promise<void>;
+  deleteFinancialDebt: (id: string) => Promise<void>;
+  toggleDebtParcelPayment: (debtId: string, parcelId: string) => Promise<void>;
 
   // Item actions
   addItem: (item: Item) => Promise<void>;
@@ -80,6 +91,8 @@ export const useStore = create<StoreState>()((set, get) => ({
   })(),
   users: {},
   installmentPurchases: [],
+  financialTransactions: [],
+  financialDebts: [],
 
   loadData: async () => {
     if (!supabase) {
@@ -105,10 +118,12 @@ export const useStore = create<StoreState>()((set, get) => ({
         return;
       }
 
-      // Map settings & users & installments
+      // Map settings & users & installments & financial data
       const settingsObj = { ...DEFAULT_SETTINGS };
       const users: Record<string, User> = {};
       let installmentPurchases: InstallmentPurchase[] = [];
+      let financialTransactions: FinancialTransaction[] = [];
+      let financialDebts: FinancialDebt[] = [];
 
       if (settingsRes.data) {
         settingsRes.data.forEach((row: any) => {
@@ -121,6 +136,22 @@ export const useStore = create<StoreState>()((set, get) => ({
               installmentPurchases = JSON.parse(row.value);
             } catch (e) {
               console.error('Erro ao ler parcelamentos:', e);
+            }
+          }
+
+          if (row.key === 'financial_transactions') {
+            try {
+              financialTransactions = JSON.parse(row.value);
+            } catch (e) {
+              console.error('Erro ao ler transações financeiras:', e);
+            }
+          }
+
+          if (row.key === 'financial_debts') {
+            try {
+              financialDebts = JSON.parse(row.value);
+            } catch (e) {
+              console.error('Erro ao ler dívidas/empréstimos:', e);
             }
           }
 
@@ -204,7 +235,17 @@ export const useStore = create<StoreState>()((set, get) => ({
         }
       }
 
-      set({ items, sales, settings: settingsObj, users, currentUser, installmentPurchases, loading: false });
+      set({
+        items,
+        sales,
+        settings: settingsObj,
+        users,
+        currentUser,
+        installmentPurchases,
+        financialTransactions,
+        financialDebts,
+        loading: false,
+      });
       console.log('✅ Dados carregados com sucesso do Supabase!');
     } catch (error) {
       console.error('Erro ao conectar com Supabase:', error);
@@ -542,6 +583,133 @@ export const useStore = create<StoreState>()((set, get) => ({
     } catch (e) {
       console.error('Erro ao atualizar parcela:', e);
       set({ installmentPurchases: previous });
+    }
+  },
+
+  addFinancialTransaction: async (transaction) => {
+    const previous = get().financialTransactions;
+    const updated = [transaction, ...previous];
+    set({ financialTransactions: updated });
+    try {
+      if (supabase) {
+        await supabase.from('settings').upsert({
+          key: 'financial_transactions',
+          value: JSON.stringify(updated),
+        });
+      }
+    } catch (e) {
+      console.error('Erro ao salvar transação financeira:', e);
+      set({ financialTransactions: previous });
+    }
+  },
+
+  deleteFinancialTransaction: async (id) => {
+    const previous = get().financialTransactions;
+    const updated = previous.filter((t) => t.id !== id);
+    set({ financialTransactions: updated });
+    try {
+      if (supabase) {
+        await supabase.from('settings').upsert({
+          key: 'financial_transactions',
+          value: JSON.stringify(updated),
+        });
+      }
+    } catch (e) {
+      console.error('Erro ao deletar transação financeira:', e);
+      set({ financialTransactions: previous });
+    }
+  },
+
+  addFinancialDebt: async (debt) => {
+    const previous = get().financialDebts;
+    const updated = [debt, ...previous];
+    set({ financialDebts: updated });
+    try {
+      if (supabase) {
+        await supabase.from('settings').upsert({
+          key: 'financial_debts',
+          value: JSON.stringify(updated),
+        });
+      }
+    } catch (e) {
+      console.error('Erro ao salvar empréstimo/dívida:', e);
+      set({ financialDebts: previous });
+    }
+  },
+
+  deleteFinancialDebt: async (id) => {
+    const previous = get().financialDebts;
+    const updated = previous.filter((d) => d.id !== id);
+    set({ financialDebts: updated });
+    try {
+      if (supabase) {
+        await supabase.from('settings').upsert({
+          key: 'financial_debts',
+          value: JSON.stringify(updated),
+        });
+      }
+    } catch (e) {
+      console.error('Erro ao deletar empréstimo/dívida:', e);
+      set({ financialDebts: previous });
+    }
+  },
+
+  toggleDebtParcelPayment: async (debtId, parcelId) => {
+    const previous = get().financialDebts;
+    const previousTransactions = get().financialTransactions;
+
+    let createdTransaction: FinancialTransaction | null = null;
+
+    const updated = previous.map((d) => {
+      if (d.id !== debtId) return d;
+      const updatedParcels = d.parcels.map((parcel) => {
+        if (parcel.id !== parcelId) return parcel;
+        const newPaid = !parcel.paid;
+
+        if (newPaid) {
+          createdTransaction = {
+            id: 'tx_debt_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+            title: `Parcela ${parcel.number}/${d.installmentsCount} - ${d.title}`,
+            amount: parcel.amount,
+            type: 'expense',
+            category: 'emprestimo_parcela',
+            date: new Date().toISOString().split('T')[0],
+            notes: `Pagamento da parcela do empréstimo/dívida (${d.creditor})`,
+            createdAt: new Date().toISOString(),
+          };
+        }
+
+        return {
+          ...parcel,
+          paid: newPaid,
+          paidDate: newPaid ? new Date().toISOString().split('T')[0] : undefined,
+        };
+      });
+      return { ...d, parcels: updatedParcels };
+    });
+
+    const updatedTransactions = createdTransaction
+      ? [createdTransaction, ...previousTransactions]
+      : previousTransactions;
+
+    set({ financialDebts: updated, financialTransactions: updatedTransactions });
+
+    try {
+      if (supabase) {
+        await supabase.from('settings').upsert({
+          key: 'financial_debts',
+          value: JSON.stringify(updated),
+        });
+        if (createdTransaction) {
+          await supabase.from('settings').upsert({
+            key: 'financial_transactions',
+            value: JSON.stringify(updatedTransactions),
+          });
+        }
+      }
+    } catch (e) {
+      console.error('Erro ao atualizar parcela do empréstimo:', e);
+      set({ financialDebts: previous, financialTransactions: previousTransactions });
     }
   },
 }));
