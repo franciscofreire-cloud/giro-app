@@ -38,7 +38,7 @@ interface StoreState {
   addFinancialTransaction: (transaction: FinancialTransaction) => Promise<void>;
   deleteFinancialTransaction: (id: string) => Promise<void>;
   toggleTransactionPaid: (id: string) => Promise<void>;
-  updateTransactionStatus: (id: string, status: 'paga' | 'pendente' | 'atrasada') => Promise<void>;
+  updateTransactionStatus: (id: string, status: 'paga' | 'pendente' | 'vencida' | 'atrasada') => Promise<void>;
   addFinancialDebt: (debt: FinancialDebt) => Promise<void>;
   deleteFinancialDebt: (id: string) => Promise<void>;
   clearAllDebts: () => Promise<void>;

@@ -33,14 +33,33 @@ import {
   CheckSquare,
 } from 'lucide-react';
 
-// Helper para calcular status automático ou respeitar status definido manualmente
-function getBillStatus(tx: FinancialTransaction): 'paga' | 'pendente' | 'atrasada' {
+// Helper para calcular status automático (PENDENTE x VENCIDA x PAGA)
+function getBillStatus(tx: FinancialTransaction): 'paga' | 'pendente' | 'vencida' {
+  // 1. Se estiver paga -> PAGA
   if (tx.status === 'paga' || tx.paid === true) return 'paga';
-  if (tx.status === 'pendente') return 'pendente';
-  if (tx.status === 'atrasada') return 'atrasada';
 
-  const today = new Date().toISOString().split('T')[0];
-  if (tx.date && tx.date < today) return 'atrasada';
+  // 2. Se o usuário explicitamente alterou o status no dropdown para VENCIDA -> VENCIDA
+  if (tx.status === 'vencida' || tx.status === 'atrasada') return 'vencida';
+
+  // 3. Verificação Automática baseada no Dia de Vencimento e Data Atual
+  const today = new Date();
+  const currentDay = today.getDate();
+  const currentMonthStr = today.toISOString().slice(0, 7); // YYYY-MM
+
+  const txMonth = tx.date ? tx.date.slice(0, 7) : currentMonthStr;
+  const dueDay = tx.dueDay || (tx.date ? parseInt(tx.date.split('-')[2]) : 15);
+
+  // Se a conta for de um mês passado e não foi paga -> VENCIDA!
+  if (txMonth < currentMonthStr) {
+    return 'vencida';
+  }
+
+  // Se for do mês atual: se o dia de hoje for maior que o dia de vencimento (ex: dia 27 > dia 15) -> VENCIDA!
+  if (txMonth === currentMonthStr && currentDay > dueDay) {
+    return 'vencida';
+  }
+
+  // Se o dia de hoje for menor ou igual ao dia de vencimento -> PENDENTE
   return 'pendente';
 }
 
@@ -75,7 +94,7 @@ export function FinancialManagement() {
   const [txCategory, setTxCategory] = useState<FinancialCategory | string>('salario');
   const [txDate, setTxDate] = useState(new Date().toISOString().split('T')[0]);
   const [txDueDay, setTxDueDay] = useState('15');
-  const [txStatus, setTxStatus] = useState<'paga' | 'pendente' | 'atrasada'>('pendente');
+  const [txStatus, setTxStatus] = useState<'paga' | 'pendente' | 'vencida'>('pendente');
   const [txIsRecurring, setTxIsRecurring] = useState(false);
   const [txNotes, setTxNotes] = useState('');
 
@@ -98,7 +117,7 @@ export function FinancialManagement() {
     recurringTemplates.forEach((template) => {
       const templateMonth = template.date.slice(0, 7);
       if (templateMonth <= selectedMonth) {
-        const expectedDate = `${selectedMonth}-${String(template.dueDay || 1).padStart(2, '0')}`;
+        const expectedDate = `${selectedMonth}-${String(template.dueDay || 15).padStart(2, '0')}`;
         const instanceExists = financialTransactions.some(
           (tx) =>
             tx.title === template.title &&
@@ -277,9 +296,8 @@ export function FinancialManagement() {
 
     addFinancialDebt(newDebt);
     setIsDebtModalOpen(false);
-    setActiveTab('debts'); // Exibe a aba de Dívidas imediatamente ao adicionar
+    setActiveTab('debts');
 
-    // Reset Form
     setDebtTitle('');
     setDebtCreditor('');
     setDebtTotalAmount('');
@@ -396,7 +414,7 @@ export function FinancialManagement() {
         </div>
       </div>
 
-      {/* ─── NAVEGAÇÃO DAS 5 ABAS SOLICITADAS (PÍLULAS SCROLLÁVEIS) ─────────────── */}
+      {/* ─── NAVEGAÇÃO DAS 5 ABAS SOLICITADAS ─────────────────────────────────── */}
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-zinc-800 scrollbar-none">
         <button
           onClick={() => setActiveTab('overview')}
@@ -500,7 +518,7 @@ export function FinancialManagement() {
                                 : tx.type === 'recurring_bill'
                                 ? st === 'paga'
                                   ? 'bg-emerald-500/10 text-emerald-400'
-                                  : st === 'atrasada'
+                                  : st === 'vencida'
                                   ? 'bg-rose-500/10 text-rose-400'
                                   : 'bg-amber-500/10 text-amber-400'
                                 : 'bg-rose-500/10 text-rose-400'
@@ -526,7 +544,7 @@ export function FinancialManagement() {
                                   className={`px-1.5 py-0.5 rounded font-bold uppercase ${
                                     st === 'paga'
                                       ? 'bg-emerald-500/20 text-emerald-400'
-                                      : st === 'atrasada'
+                                      : st === 'vencida'
                                       ? 'bg-rose-500/20 text-rose-400 animate-pulse'
                                       : 'bg-amber-500/20 text-amber-400'
                                   }`}
@@ -726,7 +744,7 @@ export function FinancialManagement() {
                   className={`p-3.5 rounded-2xl border flex items-center justify-between transition-all ${
                     currentStatus === 'paga'
                       ? 'bg-emerald-950/20 border-emerald-500/30'
-                      : currentStatus === 'atrasada'
+                      : currentStatus === 'vencida'
                       ? 'bg-rose-950/25 border-rose-500/40'
                       : 'bg-zinc-900/90 border-amber-500/30'
                   }`}
@@ -736,14 +754,14 @@ export function FinancialManagement() {
                       className={`p-2 rounded-xl shrink-0 ${
                         currentStatus === 'paga'
                           ? 'bg-emerald-500/10 text-emerald-400'
-                          : currentStatus === 'atrasada'
+                          : currentStatus === 'vencida'
                           ? 'bg-rose-500/10 text-rose-400'
                           : 'bg-amber-500/10 text-amber-400'
                       }`}
                     >
                       {currentStatus === 'paga' ? (
                         <CheckCircle2 size={18} />
-                      ) : currentStatus === 'atrasada' ? (
+                      ) : currentStatus === 'vencida' ? (
                         <AlertTriangle size={18} />
                       ) : (
                         <Repeat size={18} />
@@ -758,18 +776,19 @@ export function FinancialManagement() {
                   </div>
 
                   <div className="flex items-center gap-2 shrink-0">
+                    {/* Seletor de Status: PAGA / PENDENTE / VENCIDA */}
                     <select
                       value={currentStatus}
                       onChange={(e) =>
                         updateTransactionStatus(
                           tx.id,
-                          e.target.value as 'paga' | 'pendente' | 'atrasada'
+                          e.target.value as 'paga' | 'pendente' | 'vencida'
                         )
                       }
                       className={`px-2.5 py-1 rounded-xl text-xs font-bold border focus:outline-none cursor-pointer transition-all ${
                         currentStatus === 'paga'
                           ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30'
-                          : currentStatus === 'atrasada'
+                          : currentStatus === 'vencida'
                           ? 'bg-rose-500/20 text-rose-400 border-rose-500/40 animate-pulse'
                           : 'bg-amber-500/20 text-amber-400 border-amber-500/30'
                       }`}
@@ -780,8 +799,8 @@ export function FinancialManagement() {
                       <option value="paga" className="bg-zinc-900 text-emerald-400 font-bold">
                         ✅ PAGA
                       </option>
-                      <option value="atrasada" className="bg-zinc-900 text-rose-400 font-bold">
-                        🚨 ATRASADA
+                      <option value="vencida" className="bg-zinc-900 text-rose-400 font-bold">
+                        🚨 VENCIDA
                       </option>
                     </select>
 
@@ -1082,9 +1101,10 @@ export function FinancialManagement() {
                         min="1"
                         max="31"
                         required
+                        placeholder="15"
                         value={txDueDay}
                         onChange={(e) => setTxDueDay(e.target.value)}
-                        className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-white focus:outline-none focus:border-amber-500"
+                        className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-xs sm:text-sm font-bold text-white focus:outline-none focus:border-amber-500"
                       />
                     </div>
 
@@ -1092,12 +1112,12 @@ export function FinancialManagement() {
                       <label className="block text-xs font-medium text-zinc-400 mb-1">Status Inicial</label>
                       <select
                         value={txStatus}
-                        onChange={(e) => setTxStatus(e.target.value as 'paga' | 'pendente' | 'atrasada')}
+                        onChange={(e) => setTxStatus(e.target.value as 'paga' | 'pendente' | 'vencida')}
                         className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-2 py-2 text-xs sm:text-sm font-bold text-white focus:outline-none focus:border-amber-500"
                       >
                         <option value="pendente">⏳ Pendente</option>
                         <option value="paga">✅ Paga</option>
-                        <option value="atrasada">🚨 Atrasada</option>
+                        <option value="vencida">🚨 Vencida</option>
                       </select>
                     </div>
                   </>
