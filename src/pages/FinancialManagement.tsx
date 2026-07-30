@@ -127,10 +127,27 @@ export function FinancialManagement() {
     return monthDailyExpenses.reduce((acc, tx) => acc + tx.amount, 0);
   }, [monthDailyExpenses]);
 
-  // 3. Contas do Mês (Todas as contas do tipo 'recurring_bill' filtradas por mês)
+  // 3. Contas do Mês + QUALQUER CONTA VENCIDA DE MESES ANTERIORES (Não somem ao mudar o mês!)
   const monthBills = useMemo(() => {
-    return monthTransactions.filter((tx) => tx.type === 'recurring_bill');
-  }, [monthTransactions]);
+    const billsOfSelectedMonth = financialTransactions.filter(
+      (tx) => tx.type === 'recurring_bill' && tx.date.startsWith(selectedMonth)
+    );
+
+    const overdueFromPast = financialTransactions.filter((tx) => {
+      if (tx.type !== 'recurring_bill') return false;
+      const txMonth = tx.date ? tx.date.slice(0, 7) : '';
+      return txMonth < selectedMonth && getBillStatus(tx) === 'vencida';
+    });
+
+    const combined = [...billsOfSelectedMonth];
+    overdueFromPast.forEach((pastTx) => {
+      if (!combined.some((t) => t.id === pastTx.id)) {
+        combined.push(pastTx);
+      }
+    });
+
+    return combined;
+  }, [financialTransactions, selectedMonth]);
 
   // Contas Abertas (Pendentes ou Vencidas) - somem da lista principal quando pagas
   const openBills = useMemo(() => {
