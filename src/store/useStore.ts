@@ -37,6 +37,7 @@ interface StoreState {
   // Financial actions
   addFinancialTransaction: (transaction: FinancialTransaction) => Promise<void>;
   deleteFinancialTransaction: (id: string) => Promise<void>;
+  clearAllTransactions: () => Promise<void>;
   toggleTransactionPaid: (id: string) => Promise<void>;
   updateTransactionStatus: (id: string, status: 'paga' | 'pendente' | 'vencida' | 'atrasada') => Promise<void>;
   addFinancialDebt: (debt: FinancialDebt) => Promise<void>;
@@ -621,6 +622,22 @@ export const useStore = create<StoreState>()((set, get) => ({
       }
     } catch (e) {
       console.error('Erro ao deletar transação financeira:', e);
+      set({ financialTransactions: previous });
+    }
+  },
+
+  clearAllTransactions: async () => {
+    const previous = get().financialTransactions;
+    set({ financialTransactions: [] });
+    try {
+      if (supabase) {
+        await supabase.from('settings').upsert({
+          key: 'financial_transactions',
+          value: JSON.stringify([]),
+        });
+      }
+    } catch (e) {
+      console.error('Erro ao limpar lançamentos financeiros:', e);
       set({ financialTransactions: previous });
     }
   },
