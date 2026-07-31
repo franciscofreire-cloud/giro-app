@@ -42,7 +42,7 @@ function getBillStatus(tx: FinancialTransaction): 'paga' | 'pendente' | 'vencida
   const todayStr = new Date().toISOString().split('T')[0];
   const billDueDate = tx.date; // YYYY-MM-DD
 
-  // Se a data de vencimento escolhida for menor que a data de hoje -> VENCIDA
+  // Se a data de vencimento for menor que a data de hoje -> VENCIDA
   if (billDueDate && billDueDate < todayStr) {
     return 'vencida';
   }
@@ -99,7 +99,7 @@ export function FinancialManagement() {
   const [debtTitle, setDebtTitle] = useState('');
   const [debtTotalAmount, setDebtTotalAmount] = useState('');
 
-  // Movimentações estritamente filtradas pelo Mês Selecionado (YYYY-MM)
+  // Movimentações estritamente filtradas pelo Mês Selecionado (para Receitas e Gastos Diários)
   const monthTransactions = useMemo(() => {
     return financialTransactions.filter((tx) => tx.date.startsWith(selectedMonth));
   }, [financialTransactions, selectedMonth]);
@@ -122,43 +122,26 @@ export function FinancialManagement() {
     return monthDailyExpenses.reduce((acc, tx) => acc + tx.amount, 0);
   }, [monthDailyExpenses]);
 
-  // 3. Contas do Mês + QUALQUER CONTA VENCIDA DE MESES ANTERIORES
-  const monthBills = useMemo(() => {
-    const billsOfSelectedMonth = financialTransactions.filter(
-      (tx) => tx.type === 'recurring_bill' && tx.date.startsWith(selectedMonth)
-    );
+  // 3. CONTAS: TODAS AS CONTAS CADASTRADAS (INDEPENDENTE DO MÊS!)
+  const allBills = useMemo(() => {
+    return financialTransactions.filter((tx) => tx.type === 'recurring_bill');
+  }, [financialTransactions]);
 
-    const overdueFromPast = financialTransactions.filter((tx) => {
-      if (tx.type !== 'recurring_bill') return false;
-      const txMonth = tx.date ? tx.date.slice(0, 7) : '';
-      return txMonth < selectedMonth && getBillStatus(tx) === 'vencida';
-    });
-
-    const combined = [...billsOfSelectedMonth];
-    overdueFromPast.forEach((pastTx) => {
-      if (!combined.some((t) => t.id === pastTx.id)) {
-        combined.push(pastTx);
-      }
-    });
-
-    return combined;
-  }, [financialTransactions, selectedMonth]);
-
-  // Contas Abertas (Pendentes ou Vencidas)
+  // Contas Abertas (Pendentes ou Vencidas) - Aparecem TODAS independente do mês!
   const openBills = useMemo(() => {
-    return monthBills.filter((tx) => getBillStatus(tx) !== 'paga');
-  }, [monthBills]);
+    return allBills.filter((tx) => getBillStatus(tx) !== 'paga');
+  }, [allBills]);
 
-  // Contas Pagas do Mês (para o Mini Histórico)
+  // Contas Pagas (para o Mini Histórico de Pagas)
   const paidBills = useMemo(() => {
-    return monthBills.filter((tx) => getBillStatus(tx) === 'paga');
-  }, [monthBills]);
+    return allBills.filter((tx) => getBillStatus(tx) === 'paga');
+  }, [allBills]);
 
   const totalRecurringBills = useMemo(() => {
-    return monthBills.reduce((acc, tx) => acc + tx.amount, 0);
-  }, [monthBills]);
+    return openBills.reduce((acc, tx) => acc + tx.amount, 0);
+  }, [openBills]);
 
-  // Total Gastos Gerais (Diários + Contas)
+  // Total Gastos Gerais
   const totalExpensesAll = totalDailyExpenses + totalRecurringBills;
 
   // Saldo Livre (Sobra)
@@ -172,14 +155,14 @@ export function FinancialManagement() {
     }, 0);
   }, [financialDebts]);
 
-  // Handler para Salvar Lançamento (Receita, Gasto Diário ou Conta com Data de Vencimento)
+  // Handler para Salvar Lançamento
   const handleSaveTransaction = (e: React.FormEvent) => {
     e.preventDefault();
     if (!txTitle.trim() || !txAmount || parseFloat(txAmount) <= 0) return;
 
     const isRec = txType === 'recurring_bill';
 
-    // Para Contas, usa a Data de Vencimento (txDueDate) como a data oficial da conta
+    // Para Contas, salva com a Data de Vencimento escolhida pelo usuário
     const finalDate = isRec
       ? txDueDate
       : txDate.startsWith(selectedMonth)
@@ -693,12 +676,12 @@ export function FinancialManagement() {
         </div>
       )}
 
-      {/* ABA 4: CONTAS (PENDENTES/VENCIDAS + MINI HISTÓRICO DE PAGAS) */}
+      {/* ABA 4: CONTAS (EXIBE TODAS AS CONTAS CADASTRADAS INDEPENDENTE DO MÊS) */}
       {activeTab === 'recurring_bills' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <h2 className="text-sm sm:text-base font-bold text-white">Minhas Contas a Pagar ({selectedMonth})</h2>
+              <h2 className="text-sm sm:text-base font-bold text-white">Minhas Contas a Pagar</h2>
             </div>
             <button
               onClick={() => openNewTransaction('recurring_bill')}
@@ -708,7 +691,7 @@ export function FinancialManagement() {
             </button>
           </div>
 
-          {/* LISTA DE CONTAS ABERTAS (PENDENTES E VENCIDAS) */}
+          {/* LISTA DE CONTAS ABERTAS (PENDENTES E VENCIDAS - INDEPENDENTE DO MÊS) */}
           <div className="space-y-2">
             <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">
               Contas Abertas ({openBills.length})
@@ -788,14 +771,14 @@ export function FinancialManagement() {
               {openBills.length === 0 && (
                 <div className="col-span-full py-6 text-center text-zinc-500 text-xs bg-zinc-900/50 border border-zinc-800 rounded-2xl">
                   {paidBills.length > 0
-                    ? '🎉 Todas as suas contas deste mês já foram pagas! Confira o histórico abaixo.'
+                    ? '🎉 Todas as suas contas cadastradas já foram pagas! Confira o histórico abaixo.'
                     : 'Nenhuma conta pendente ou vencida cadastrada. Clique em "+ Nova Conta" para adicionar.'}
                 </div>
               )}
             </div>
           </div>
 
-          {/* 📜 MINI HISTÓRICO DE CONTAS PAGAS NO MÊS */}
+          {/* 📜 MINI HISTÓRICO DE CONTAS PAGAS */}
           <div className="pt-3 border-t border-zinc-800 space-y-2">
             <button
               onClick={() => setIsPaidHistoryOpen(!isPaidHistoryOpen)}
@@ -803,7 +786,7 @@ export function FinancialManagement() {
             >
               <span className="flex items-center gap-2">
                 <History size={15} className="text-emerald-400" />
-                Histórico de Contas Pagas do Mês ({paidBills.length})
+                Histórico de Contas Pagas ({paidBills.length})
               </span>
               <span className="text-[11px] text-emerald-400 font-semibold">
                 {isPaidHistoryOpen ? 'Ocultar ▲' : 'Mostrar ▼'}
@@ -860,7 +843,7 @@ export function FinancialManagement() {
 
                 {paidBills.length === 0 && (
                   <div className="col-span-full py-4 text-center text-zinc-500 text-xs bg-zinc-900/30 rounded-xl border border-zinc-800/60">
-                    Nenhuma conta foi paga neste mês ainda.
+                    Nenhuma conta foi paga ainda.
                   </div>
                 )}
               </div>
@@ -979,7 +962,7 @@ export function FinancialManagement() {
         </div>
       )}
 
-      {/* ─── MODAL: NOVA TRANSAÇÃO (RECEITA / GASTO / CONTA COM DATA DE VENCIMENTO) ─── */}
+      {/* ─── MODAL: NOVA TRANSAÇÃO ────────────────────────────────────────────── */}
       {isTransactionModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/70 backdrop-blur-sm">
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl max-w-md w-full p-4 sm:p-6 space-y-3 shadow-2xl relative max-h-[90vh] overflow-y-auto">
