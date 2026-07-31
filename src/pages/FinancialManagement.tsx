@@ -127,7 +127,7 @@ export function FinancialManagement() {
     return financialTransactions.filter((tx) => tx.type === 'recurring_bill');
   }, [financialTransactions]);
 
-  // Contas Abertas (Pendentes ou Vencidas) - Aparecem TODAS independente do mês!
+  // Contas Abertas (Pendentes ou Vencidas)
   const openBills = useMemo(() => {
     return allBills.filter((tx) => getBillStatus(tx) !== 'paga');
   }, [allBills]);
@@ -585,28 +585,28 @@ export function FinancialManagement() {
             {monthIncomes.map((tx) => (
               <div
                 key={tx.id}
-                className="bg-zinc-900/90 border border-zinc-800 p-3.5 rounded-2xl flex items-center justify-between"
+                className="bg-zinc-900/90 border border-zinc-800 p-4 rounded-2xl flex items-center justify-between gap-3 shadow-md hover:border-emerald-500/30 transition-all"
               >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 shrink-0">
-                    <Briefcase size={18} />
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="p-2.5 rounded-xl bg-emerald-500/10 text-emerald-400 shrink-0 border border-emerald-500/20">
+                    <Briefcase size={20} />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs sm:text-sm font-bold text-white truncate">{tx.title}</p>
-                    <p className="text-[10px] text-zinc-500">
+                    <p className="text-sm sm:text-base font-bold text-white tracking-tight truncate">{tx.title}</p>
+                    <p className="text-xs text-zinc-400 mt-0.5">
                       {FINANCIAL_CATEGORY_LABELS[tx.category] || tx.category} • {formatDate(tx.date)}
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-xs sm:text-sm font-extrabold text-emerald-400">
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className="text-lg sm:text-xl font-extrabold text-emerald-400 tabular-nums">
                     +{formatCurrency(tx.amount)}
                   </span>
                   <button
                     onClick={() => deleteFinancialTransaction(tx.id)}
-                    className="text-zinc-500 hover:text-rose-400 p-1"
+                    className="text-zinc-500 hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-500/10 transition-all"
                   >
-                    <Trash2 size={13} />
+                    <Trash2 size={16} />
                   </button>
                 </div>
               </div>
@@ -640,28 +640,28 @@ export function FinancialManagement() {
             {monthDailyExpenses.map((tx) => (
               <div
                 key={tx.id}
-                className="bg-zinc-900/90 border border-zinc-800 p-3.5 rounded-2xl flex items-center justify-between"
+                className="bg-zinc-900/90 border border-zinc-800 p-4 rounded-2xl flex items-center justify-between gap-3 shadow-md hover:border-rose-500/30 transition-all"
               >
-                <div className="flex items-center gap-2.5 min-w-0">
-                  <div className="p-2 rounded-xl bg-rose-500/10 text-rose-400 shrink-0">
-                    <ArrowDownRight size={18} />
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="p-2.5 rounded-xl bg-rose-500/10 text-rose-400 shrink-0 border border-rose-500/20">
+                    <ArrowDownRight size={20} />
                   </div>
                   <div className="min-w-0">
-                    <p className="text-xs sm:text-sm font-bold text-white truncate">{tx.title}</p>
-                    <p className="text-[10px] text-zinc-500">
+                    <p className="text-sm sm:text-base font-bold text-white tracking-tight truncate">{tx.title}</p>
+                    <p className="text-xs text-zinc-400 mt-0.5">
                       {FINANCIAL_CATEGORY_LABELS[tx.category] || tx.category} • {formatDate(tx.date)}
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-xs sm:text-sm font-extrabold text-rose-400">
+                <div className="flex items-center gap-3 shrink-0">
+                  <span className="text-lg sm:text-xl font-extrabold text-rose-400 tabular-nums">
                     -{formatCurrency(tx.amount)}
                   </span>
                   <button
                     onClick={() => deleteFinancialTransaction(tx.id)}
-                    className="text-zinc-500 hover:text-rose-400 p-1"
+                    className="text-zinc-500 hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-500/10 transition-all"
                   >
-                    <Trash2 size={13} />
+                    <Trash2 size={16} />
                   </button>
                 </div>
               </div>
@@ -676,7 +676,7 @@ export function FinancialManagement() {
         </div>
       )}
 
-      {/* ABA 4: CONTAS (EXIBE TODAS AS CONTAS CADASTRADAS INDEPENDENTE DO MÊS) */}
+      {/* ABA 4: CONTAS (CARD REDESENHADO COM O VALOR DESTAQUE BEM GRANDE) */}
       {activeTab === 'recurring_bills' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -691,85 +691,103 @@ export function FinancialManagement() {
             </button>
           </div>
 
-          {/* LISTA DE CONTAS ABERTAS (PENDENTES E VENCIDAS - INDEPENDENTE DO MÊS) */}
+          {/* LISTA DE CONTAS ABERTAS (PENDENTES E VENCIDAS - COM VALOR EM DESTAQUE BEM GRANDE) */}
           <div className="space-y-2">
             <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">
               Contas Abertas ({openBills.length})
             </h3>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            <div className="grid grid-cols-1 gap-3">
               {openBills.map((tx) => {
                 const currentStatus = getBillStatus(tx);
                 return (
                   <div
                     key={tx.id}
-                    className={`p-3.5 rounded-2xl border flex items-center justify-between transition-all ${
+                    className={`p-4 rounded-2xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 transition-all shadow-md ${
                       currentStatus === 'vencida'
-                        ? 'bg-rose-950/25 border-rose-500/40'
-                        : 'bg-zinc-900/90 border-amber-500/30'
+                        ? 'bg-rose-950/30 border-rose-500/50 hover:border-rose-500/70'
+                        : 'bg-zinc-900/90 border-amber-500/30 hover:border-amber-500/50'
                     }`}
                   >
-                    <div className="flex items-center gap-2.5 min-w-0">
+                    <div className="flex items-center gap-3 min-w-0">
                       <div
-                        className={`p-2 rounded-xl shrink-0 ${
+                        className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-inner ${
                           currentStatus === 'vencida'
-                            ? 'bg-rose-500/10 text-rose-400'
-                            : 'bg-amber-500/10 text-amber-400'
+                            ? 'bg-rose-500/15 text-rose-400 border border-rose-500/30'
+                            : 'bg-amber-500/15 text-amber-400 border border-amber-500/30'
                         }`}
                       >
                         {currentStatus === 'vencida' ? (
-                          <AlertTriangle size={18} />
+                          <AlertTriangle size={20} />
                         ) : (
-                          <Repeat size={18} />
+                          <Repeat size={20} />
                         )}
                       </div>
-                      <div className="min-w-0">
-                        <p className="text-xs sm:text-sm font-bold text-white truncate">{tx.title}</p>
-                        <p className="text-[10px] text-zinc-400 mt-0.5">
-                          Vence em: <strong className="text-zinc-200">{formatDate(tx.date)}</strong> • {formatCurrency(tx.amount)}
-                        </p>
+
+                      <div className="min-w-0 space-y-1">
+                        <h4 className="text-sm sm:text-base font-bold text-white tracking-tight truncate">
+                          {tx.title}
+                        </h4>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="inline-flex items-center gap-1 text-[11px] font-semibold bg-zinc-800/90 text-zinc-300 px-2.5 py-0.5 rounded-lg border border-zinc-700">
+                            <Calendar size={12} className={currentStatus === 'vencida' ? 'text-rose-400' : 'text-amber-400'} />
+                            Vence em: {formatDate(tx.date)}
+                          </span>
+                        </div>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
-                      <select
-                        value={currentStatus}
-                        onChange={(e) =>
-                          updateTransactionStatus(
-                            tx.id,
-                            e.target.value as 'paga' | 'pendente' | 'vencida'
-                          )
-                        }
-                        className={`px-2.5 py-1 rounded-xl text-xs font-bold border focus:outline-none cursor-pointer transition-all ${
-                          currentStatus === 'vencida'
-                            ? 'bg-rose-500/20 text-rose-400 border-rose-500/40 animate-pulse'
-                            : 'bg-amber-500/20 text-amber-400 border-amber-500/30'
-                        }`}
-                      >
-                        <option value="pendente" className="bg-zinc-900 text-amber-400 font-bold">
-                          ⏳ PENDENTE
-                        </option>
-                        <option value="paga" className="bg-zinc-900 text-emerald-400 font-bold">
-                          ✅ MARCAR PAGA
-                        </option>
-                        <option value="vencida" className="bg-zinc-900 text-rose-400 font-bold">
-                          🚨 VENCIDA
-                        </option>
-                      </select>
+                    <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-zinc-800/80">
+                      {/* VALOR DA CONTA COM DESTAQUE BEM GRANDE */}
+                      <div className="text-left sm:text-right">
+                        <span className="text-[10px] text-zinc-500 font-semibold uppercase tracking-wider block">Valor</span>
+                        <span className={`text-lg sm:text-2xl font-extrabold tracking-tight tabular-nums ${
+                          currentStatus === 'vencida' ? 'text-rose-400' : 'text-amber-400'
+                        }`}>
+                          {formatCurrency(tx.amount)}
+                        </span>
+                      </div>
 
-                      <button
-                        onClick={() => deleteFinancialTransaction(tx.id)}
-                        className="text-zinc-500 hover:text-rose-400 p-1"
-                      >
-                        <Trash2 size={13} />
-                      </button>
+                      <div className="flex items-center gap-2">
+                        <select
+                          value={currentStatus}
+                          onChange={(e) =>
+                            updateTransactionStatus(
+                              tx.id,
+                              e.target.value as 'paga' | 'pendente' | 'vencida'
+                            )
+                          }
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold border focus:outline-none cursor-pointer transition-all shadow-sm ${
+                            currentStatus === 'vencida'
+                              ? 'bg-rose-500/20 text-rose-400 border-rose-500/40 animate-pulse'
+                              : 'bg-amber-500/20 text-amber-400 border-amber-500/30'
+                          }`}
+                        >
+                          <option value="pendente" className="bg-zinc-900 text-amber-400 font-bold">
+                            ⏳ PENDENTE
+                          </option>
+                          <option value="paga" className="bg-zinc-900 text-emerald-400 font-bold">
+                            ✅ MARCAR PAGA
+                          </option>
+                          <option value="vencida" className="bg-zinc-900 text-rose-400 font-bold">
+                            🚨 VENCIDA
+                          </option>
+                        </select>
+
+                        <button
+                          onClick={() => deleteFinancialTransaction(tx.id)}
+                          className="p-2 text-zinc-500 hover:text-rose-400 hover:bg-rose-500/10 rounded-xl transition-all"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
                     </div>
                   </div>
                 );
               })}
 
               {openBills.length === 0 && (
-                <div className="col-span-full py-6 text-center text-zinc-500 text-xs bg-zinc-900/50 border border-zinc-800 rounded-2xl">
+                <div className="col-span-full py-8 text-center text-zinc-500 text-xs bg-zinc-900/50 border border-zinc-800 rounded-2xl">
                   {paidBills.length > 0
                     ? '🎉 Todas as suas contas cadastradas já foram pagas! Confira o histórico abaixo.'
                     : 'Nenhuma conta pendente ou vencida cadastrada. Clique em "+ Nova Conta" para adicionar.'}
@@ -782,7 +800,7 @@ export function FinancialManagement() {
           <div className="pt-3 border-t border-zinc-800 space-y-2">
             <button
               onClick={() => setIsPaidHistoryOpen(!isPaidHistoryOpen)}
-              className="flex items-center justify-between w-full p-2 bg-zinc-900/60 hover:bg-zinc-900 border border-zinc-800 rounded-xl text-xs font-bold text-zinc-300 transition-all"
+              className="flex items-center justify-between w-full p-2.5 bg-zinc-900/60 hover:bg-zinc-900 border border-zinc-800 rounded-xl text-xs font-bold text-zinc-300 transition-all"
             >
               <span className="flex items-center gap-2">
                 <History size={15} className="text-emerald-400" />
@@ -794,25 +812,29 @@ export function FinancialManagement() {
             </button>
 
             {isPaidHistoryOpen && (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 gap-2">
                 {paidBills.map((tx) => (
                   <div
                     key={tx.id}
-                    className="p-3 rounded-2xl bg-emerald-950/20 border border-emerald-500/30 flex items-center justify-between"
+                    className="p-3.5 rounded-2xl bg-emerald-950/20 border border-emerald-500/30 flex items-center justify-between gap-3"
                   >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 shrink-0">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className="p-2 rounded-xl bg-emerald-500/10 text-emerald-400 shrink-0 border border-emerald-500/20">
                         <CheckCircle2 size={18} />
                       </div>
                       <div className="min-w-0">
                         <p className="text-xs sm:text-sm font-bold text-white truncate">{tx.title}</p>
                         <p className="text-[10px] text-emerald-400 font-medium">
-                          Paga • Venceu em {formatDate(tx.date)} • {formatCurrency(tx.amount)}
+                          Paga • Venceu em {formatDate(tx.date)}
                         </p>
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-2 shrink-0">
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="text-base sm:text-lg font-extrabold text-emerald-400 tabular-nums">
+                        {formatCurrency(tx.amount)}
+                      </span>
+
                       <select
                         value="paga"
                         onChange={(e) =>
