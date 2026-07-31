@@ -33,26 +33,21 @@ import {
   CheckSquare,
 } from 'lucide-react';
 
-// Helper para calcular status automático (PENDENTE x VENCIDA x PAGA)
+// Helper para calcular status automático (PENDENTE x VENCIDA x PAGA) por Data de Vencimento Completa
 function getBillStatus(tx: FinancialTransaction): 'paga' | 'pendente' | 'vencida' {
   if (tx.status === 'paga' || tx.paid === true) return 'paga';
   if (tx.status === 'vencida' || tx.status === 'atrasada') return 'vencida';
 
-  const today = new Date();
-  const currentDay = today.getDate();
-  const currentMonthStr = today.toISOString().slice(0, 7); // YYYY-MM
+  // Comparação precisa entre a Data de Vencimento e a Data Atual
+  const todayStr = new Date().toISOString().split('T')[0];
+  const billDueDate = tx.date; // YYYY-MM-DD
 
-  const txMonth = tx.date ? tx.date.slice(0, 7) : currentMonthStr;
-  const dueDay = tx.dueDay || (tx.date ? parseInt(tx.date.split('-')[2]) : 15);
-
-  if (txMonth < currentMonthStr) {
+  // Se a data de vencimento escolhida for menor que a data de hoje -> VENCIDA
+  if (billDueDate && billDueDate < todayStr) {
     return 'vencida';
   }
 
-  if (txMonth === currentMonthStr && currentDay > dueDay) {
-    return 'vencida';
-  }
-
+  // Se a data de vencimento for hoje ou no futuro -> PENDENTE
   return 'pendente';
 }
 
@@ -95,7 +90,7 @@ export function FinancialManagement() {
   const [txAmount, setTxAmount] = useState('');
   const [txCategory, setTxCategory] = useState<FinancialCategory | string>('salario');
   const [txDate, setTxDate] = useState(new Date().toISOString().split('T')[0]);
-  const [txDueDay, setTxDueDay] = useState('15');
+  const [txDueDate, setTxDueDate] = useState(new Date().toISOString().split('T')[0]); // Data de Vencimento Completa
   const [txStatus, setTxStatus] = useState<'paga' | 'pendente' | 'vencida'>('pendente');
   const [txNotes, setTxNotes] = useState('');
 
@@ -127,7 +122,7 @@ export function FinancialManagement() {
     return monthDailyExpenses.reduce((acc, tx) => acc + tx.amount, 0);
   }, [monthDailyExpenses]);
 
-  // 3. Contas do Mês + QUALQUER CONTA VENCIDA DE MESES ANTERIORES (Não somem ao mudar o mês!)
+  // 3. Contas do Mês + QUALQUER CONTA VENCIDA DE MESES ANTERIORES
   const monthBills = useMemo(() => {
     const billsOfSelectedMonth = financialTransactions.filter(
       (tx) => tx.type === 'recurring_bill' && tx.date.startsWith(selectedMonth)
@@ -149,7 +144,7 @@ export function FinancialManagement() {
     return combined;
   }, [financialTransactions, selectedMonth]);
 
-  // Contas Abertas (Pendentes ou Vencidas) - somem da lista principal quando pagas
+  // Contas Abertas (Pendentes ou Vencidas)
   const openBills = useMemo(() => {
     return monthBills.filter((tx) => getBillStatus(tx) !== 'paga');
   }, [monthBills]);
@@ -177,21 +172,21 @@ export function FinancialManagement() {
     }, 0);
   }, [financialDebts]);
 
-  // Handler para Salvar Lançamento (Receita, Gasto Diário ou Conta)
+  // Handler para Salvar Lançamento (Receita, Gasto Diário ou Conta com Data de Vencimento)
   const handleSaveTransaction = (e: React.FormEvent) => {
     e.preventDefault();
     if (!txTitle.trim() || !txAmount || parseFloat(txAmount) <= 0) return;
 
-    const dueDayNum = parseInt(txDueDay) || 15;
     const isRec = txType === 'recurring_bill';
 
-    const formattedDueDay = String(dueDayNum).padStart(2, '0');
+    // Para Contas, usa a Data de Vencimento (txDueDate) como a data oficial da conta
     const finalDate = isRec
-      ? `${selectedMonth}-${formattedDueDay}`
+      ? txDueDate
       : txDate.startsWith(selectedMonth)
       ? txDate
       : `${selectedMonth}-${txDate.split('-')[2] || '01'}`;
 
+    const dueDayNum = parseInt(finalDate.split('-')[2]) || 15;
     const isPaid = txType === 'income' || txStatus === 'paga';
 
     const newTx: FinancialTransaction = {
@@ -279,7 +274,7 @@ export function FinancialManagement() {
     } else if (type === 'recurring_bill') {
       setTxCategory('moradia');
       setTxStatus('pendente');
-      setTxDueDay('15');
+      setTxDueDate(new Date().toISOString().split('T')[0]);
     } else {
       setTxCategory('alimentacao');
     }
@@ -310,7 +305,7 @@ export function FinancialManagement() {
             <button
               onClick={() => clearAllTransactions()}
               className="flex items-center gap-1 px-3 py-2 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 rounded-xl text-xs font-semibold transition-all"
-              title="Limpar todos os dados das 3 abas"
+              title="Limpar todos os dados das abas"
             >
               <Trash2 size={13} /> Limpar Dados
             </button>
@@ -392,7 +387,7 @@ export function FinancialManagement() {
         </div>
       </div>
 
-      {/* ─── NAVEGAÇÃO DAS 5 ABAS SOLICITADAS ─────────────────────────────────── */}
+      {/* ─── NAVEGAÇÃO DAS 5 ABAS ─────────────────────────────────────────────── */}
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-zinc-800 scrollbar-none">
         <button
           onClick={() => setActiveTab('overview')}
@@ -748,13 +743,12 @@ export function FinancialManagement() {
                       <div className="min-w-0">
                         <p className="text-xs sm:text-sm font-bold text-white truncate">{tx.title}</p>
                         <p className="text-[10px] text-zinc-400 mt-0.5">
-                          Vence dia <strong className="text-zinc-200">{tx.dueDay || 15}</strong> • {formatCurrency(tx.amount)}
+                          Vence em: <strong className="text-zinc-200">{formatDate(tx.date)}</strong> • {formatCurrency(tx.amount)}
                         </p>
                       </div>
                     </div>
 
                     <div className="flex items-center gap-2 shrink-0">
-                      {/* Ao selecionar PAGA, a conta sai da lista principal e vai para o histórico */}
                       <select
                         value={currentStatus}
                         onChange={(e) =>
@@ -830,7 +824,7 @@ export function FinancialManagement() {
                       <div className="min-w-0">
                         <p className="text-xs sm:text-sm font-bold text-white truncate">{tx.title}</p>
                         <p className="text-[10px] text-emerald-400 font-medium">
-                          Paga • {formatCurrency(tx.amount)}
+                          Paga • Venceu em {formatDate(tx.date)} • {formatCurrency(tx.amount)}
                         </p>
                       </div>
                     </div>
@@ -985,7 +979,7 @@ export function FinancialManagement() {
         </div>
       )}
 
-      {/* ─── MODAL: NOVA TRANSAÇÃO (RECEITA / GASTO / CONTA) ───────────────────── */}
+      {/* ─── MODAL: NOVA TRANSAÇÃO (RECEITA / GASTO / CONTA COM DATA DE VENCIMENTO) ─── */}
       {isTransactionModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/70 backdrop-blur-sm">
           <div className="bg-zinc-900 border border-zinc-800 rounded-2xl max-w-md w-full p-4 sm:p-6 space-y-3 shadow-2xl relative max-h-[90vh] overflow-y-auto">
@@ -1038,6 +1032,7 @@ export function FinancialManagement() {
                     setTxType('recurring_bill');
                     setTxCategory('moradia');
                     setTxStatus('pendente');
+                    setTxDueDate(new Date().toISOString().split('T')[0]);
                   }}
                   className={`py-1.5 text-[11px] font-bold rounded-lg transition-all ${
                     txType === 'recurring_bill' ? 'bg-amber-500 text-zinc-950 shadow' : 'text-zinc-400 hover:text-white'
@@ -1097,8 +1092,35 @@ export function FinancialManagement() {
                 </div>
               </div>
 
-              {/* Data, Dia Vencimento & Status Inicial */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+              {/* Data de Vencimento e Status Inicial para Contas */}
+              {txType === 'recurring_bill' ? (
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="block text-xs font-medium text-amber-400 mb-1 font-bold">
+                      📅 Data de Vencimento
+                    </label>
+                    <input
+                      type="date"
+                      required
+                      value={txDueDate}
+                      onChange={(e) => setTxDueDate(e.target.value)}
+                      className="w-full bg-zinc-800 border border-amber-500/50 rounded-xl px-3 py-2 text-xs sm:text-sm text-white focus:outline-none focus:border-amber-500"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-medium text-zinc-400 mb-1">Status Inicial</label>
+                    <select
+                      value={txStatus}
+                      onChange={(e) => setTxStatus(e.target.value as 'paga' | 'pendente' | 'vencida')}
+                      className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-2 py-2 text-xs sm:text-sm font-bold text-white focus:outline-none focus:border-amber-500"
+                    >
+                      <option value="pendente">⏳ Pendente</option>
+                      <option value="vencida">🚨 Vencida</option>
+                    </select>
+                  </div>
+                </div>
+              ) : (
                 <div>
                   <label className="block text-xs font-medium text-zinc-400 mb-1">Data</label>
                   <input
@@ -1109,37 +1131,7 @@ export function FinancialManagement() {
                     className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-white focus:outline-none focus:border-emerald-500"
                   />
                 </div>
-
-                {txType === 'recurring_bill' && (
-                  <>
-                    <div>
-                      <label className="block text-xs font-medium text-zinc-400 mb-1">Dia Venc. (1-31)</label>
-                      <input
-                        type="number"
-                        min="1"
-                        max="31"
-                        required
-                        placeholder="15"
-                        value={txDueDay}
-                        onChange={(e) => setTxDueDay(e.target.value)}
-                        className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-xs sm:text-sm font-bold text-white focus:outline-none focus:border-amber-500"
-                      />
-                    </div>
-
-                    <div className="col-span-2 sm:col-span-1">
-                      <label className="block text-xs font-medium text-zinc-400 mb-1">Status Inicial</label>
-                      <select
-                        value={txStatus}
-                        onChange={(e) => setTxStatus(e.target.value as 'paga' | 'pendente' | 'vencida')}
-                        className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-2 py-2 text-xs sm:text-sm font-bold text-white focus:outline-none focus:border-amber-500"
-                      >
-                        <option value="pendente">⏳ Pendente</option>
-                        <option value="vencida">🚨 Vencida</option>
-                      </select>
-                    </div>
-                  </>
-                )}
-              </div>
+              )}
 
               {/* Botões */}
               <div className="flex items-center justify-end gap-2 pt-2">
