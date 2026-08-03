@@ -3,6 +3,8 @@ import { useStore } from '@/store/useStore';
 import {
   FinancialTransaction,
   FinancialDebt,
+  FinancialGoal,
+  GoalCategory,
   FinancialCategory,
   FINANCIAL_CATEGORY_LABELS,
   TransactionType,
@@ -30,7 +32,12 @@ import {
   Edit2,
   DollarSign,
   History,
-  CheckSquare,
+  Target,
+  Shield,
+  Zap,
+  Award,
+  HeartHandshake,
+  Flame,
 } from 'lucide-react';
 
 // Helper para calcular status automático (PENDENTE x VENCIDA x PAGA) por Data de Vencimento Completa
@@ -38,37 +45,86 @@ function getBillStatus(tx: FinancialTransaction): 'paga' | 'pendente' | 'vencida
   if (tx.status === 'paga' || tx.paid === true) return 'paga';
   if (tx.status === 'vencida' || tx.status === 'atrasada') return 'vencida';
 
-  // Comparação precisa entre a Data de Vencimento e a Data Atual
   const todayStr = new Date().toISOString().split('T')[0];
-  const billDueDate = tx.date; // YYYY-MM-DD
+  const billDueDate = tx.date;
 
-  // Se a data de vencimento for menor que a data de hoje -> VENCIDA
   if (billDueDate && billDueDate < todayStr) {
     return 'vencida';
   }
-
-  // Se a data de vencimento for hoje ou no futuro -> PENDENTE
   return 'pendente';
 }
+
+const GOAL_CATEGORY_CONFIG: Record<GoalCategory, { label: string; icon: any; color: string; bg: string; border: string }> = {
+  emergencia: {
+    label: 'Segurança & Emergência',
+    icon: Shield,
+    color: 'text-emerald-400',
+    bg: 'bg-emerald-500/10',
+    border: 'border-emerald-500/20',
+  },
+  dividas: {
+    label: 'Liberdade de Dívidas',
+    icon: Zap,
+    color: 'text-amber-400',
+    bg: 'bg-amber-500/10',
+    border: 'border-amber-500/20',
+  },
+  trabalho: {
+    label: 'Crescimento & Trabalho',
+    icon: Award,
+    color: 'text-blue-400',
+    bg: 'bg-blue-500/10',
+    border: 'border-blue-500/20',
+  },
+  sonhos: {
+    label: 'Sonhos & Família',
+    icon: HeartHandshake,
+    color: 'text-purple-400',
+    bg: 'bg-purple-500/10',
+    border: 'border-purple-500/20',
+  },
+};
 
 export function FinancialManagement() {
   const financialTransactions = useStore((s) => s.financialTransactions);
   const financialDebts = useStore((s) => s.financialDebts);
+  const financialGoals = useStore((s) => s.financialGoals || []);
+
   const addFinancialTransaction = useStore((s) => s.addFinancialTransaction);
   const deleteFinancialTransaction = useStore((s) => s.deleteFinancialTransaction);
   const clearAllTransactions = useStore((s) => s.clearAllTransactions);
   const updateTransactionStatus = useStore((s) => s.updateTransactionStatus);
+
   const addFinancialDebt = useStore((s) => s.addFinancialDebt);
   const updateFinancialDebt = useStore((s) => s.updateFinancialDebt);
   const deleteFinancialDebt = useStore((s) => s.deleteFinancialDebt);
   const clearAllDebts = useStore((s) => s.clearAllDebts);
 
-  // Active Tab: 'overview' | 'incomes' | 'daily_expenses' | 'recurring_bills' | 'debts'
-  const [activeTab, setActiveTab] = useState<'overview' | 'incomes' | 'daily_expenses' | 'recurring_bills' | 'debts'>('overview');
+  const addFinancialGoal = useStore((s) => s.addFinancialGoal);
+  const updateFinancialGoal = useStore((s) => s.updateFinancialGoal);
+  const addAmountToGoal = useStore((s) => s.addAmountToGoal);
+  const deleteFinancialGoal = useStore((s) => s.deleteFinancialGoal);
+
+  // Active Tab: 'overview' | 'incomes' | 'daily_expenses' | 'recurring_bills' | 'debts' | 'goals'
+  const [activeTab, setActiveTab] = useState<'overview' | 'incomes' | 'daily_expenses' | 'recurring_bills' | 'debts' | 'goals'>('overview');
 
   // Modals state
   const [isTransactionModalOpen, setIsTransactionModalOpen] = useState(false);
   const [isDebtModalOpen, setIsDebtModalOpen] = useState(false);
+  const [isGoalModalOpen, setIsGoalModalOpen] = useState(false);
+
+  // Modal Deposit Goal
+  const [depositGoal, setDepositGoal] = useState<FinancialGoal | null>(null);
+  const [depositAmount, setDepositAmount] = useState('');
+
+  // Modal Edit Goal
+  const [editingGoal, setEditingGoal] = useState<FinancialGoal | null>(null);
+  const [editGoalTitle, setEditGoalTitle] = useState('');
+  const [editGoalTarget, setEditGoalTarget] = useState('');
+  const [editGoalCurrent, setEditGoalCurrent] = useState('');
+  const [editGoalDate, setEditGoalDate] = useState('');
+  const [editGoalCategory, setEditGoalCategory] = useState<GoalCategory>('emergencia');
+  const [editGoalMotivation, setEditGoalMotivation] = useState('');
 
   // Edit/Amortize Debt Modal
   const [editingDebt, setEditingDebt] = useState<FinancialDebt | null>(null);
@@ -90,7 +146,7 @@ export function FinancialManagement() {
   const [txAmount, setTxAmount] = useState('');
   const [txCategory, setTxCategory] = useState<FinancialCategory | string>('salario');
   const [txDate, setTxDate] = useState(new Date().toISOString().split('T')[0]);
-  const [txDueDate, setTxDueDate] = useState(new Date().toISOString().split('T')[0]); // Data de Vencimento Completa
+  const [txDueDate, setTxDueDate] = useState(new Date().toISOString().split('T')[0]);
   const [txStatus, setTxStatus] = useState<'paga' | 'pendente' | 'vencida'>('pendente');
   const [txNotes, setTxNotes] = useState('');
 
@@ -99,7 +155,15 @@ export function FinancialManagement() {
   const [debtTitle, setDebtTitle] = useState('');
   const [debtTotalAmount, setDebtTotalAmount] = useState('');
 
-  // Movimentações estritamente filtradas pelo Mês Selecionado (para Receitas e Gastos Diários)
+  // Form State: Nova Meta
+  const [goalTitle, setGoalTitle] = useState('');
+  const [goalTargetAmount, setGoalTargetAmount] = useState('');
+  const [goalCurrentAmount, setGoalCurrentAmount] = useState('');
+  const [goalTargetDate, setGoalTargetDate] = useState('');
+  const [goalCategory, setGoalCategory] = useState<GoalCategory>('emergencia');
+  const [goalMotivation, setGoalMotivation] = useState('');
+
+  // Movimentações estritamente filtradas pelo Mês Selecionado
   const monthTransactions = useMemo(() => {
     return financialTransactions.filter((tx) => tx.date.startsWith(selectedMonth));
   }, [financialTransactions, selectedMonth]);
@@ -122,17 +186,15 @@ export function FinancialManagement() {
     return monthDailyExpenses.reduce((acc, tx) => acc + tx.amount, 0);
   }, [monthDailyExpenses]);
 
-  // 3. CONTAS: TODAS AS CONTAS CADASTRADAS (INDEPENDENTE DO MÊS!)
+  // 3. CONTAS: TODAS AS CONTAS CADASTRADAS
   const allBills = useMemo(() => {
     return financialTransactions.filter((tx) => tx.type === 'recurring_bill');
   }, [financialTransactions]);
 
-  // Contas Abertas (Pendentes ou Vencidas)
   const openBills = useMemo(() => {
     return allBills.filter((tx) => getBillStatus(tx) !== 'paga');
   }, [allBills]);
 
-  // Contas Pagas (para o Mini Histórico de Pagas)
   const paidBills = useMemo(() => {
     return allBills.filter((tx) => getBillStatus(tx) === 'paga');
   }, [allBills]);
@@ -141,10 +203,7 @@ export function FinancialManagement() {
     return openBills.reduce((acc, tx) => acc + tx.amount, 0);
   }, [openBills]);
 
-  // Total Gastos Gerais
   const totalExpensesAll = totalDailyExpenses + totalRecurringBills;
-
-  // Saldo Livre (Sobra)
   const netBalance = totalIncome - totalExpensesAll;
 
   // 4. Dívidas & Empréstimos
@@ -155,6 +214,17 @@ export function FinancialManagement() {
     }, 0);
   }, [financialDebts]);
 
+  // 5. Metas Financeiras (Totais)
+  const totalGoalsTarget = useMemo(() => {
+    return financialGoals.reduce((acc: number, g: FinancialGoal) => acc + g.targetAmount, 0);
+  }, [financialGoals]);
+
+  const totalGoalsSaved = useMemo(() => {
+    return financialGoals.reduce((acc: number, g: FinancialGoal) => acc + g.currentAmount, 0);
+  }, [financialGoals]);
+
+  const overallGoalsProgress = totalGoalsTarget > 0 ? (totalGoalsSaved / totalGoalsTarget) * 100 : 0;
+
   // Handler para Salvar Lançamento
   const handleSaveTransaction = (e: React.FormEvent) => {
     e.preventDefault();
@@ -162,7 +232,6 @@ export function FinancialManagement() {
 
     const isRec = txType === 'recurring_bill';
 
-    // Para Contas, salva com a Data de Vencimento escolhida pelo usuário
     const finalDate = isRec
       ? txDueDate
       : txDate.startsWith(selectedMonth)
@@ -218,6 +287,80 @@ export function FinancialManagement() {
     setDebtCreditor('');
     setDebtTitle('');
     setDebtTotalAmount('');
+  };
+
+  // Handler para Salvar Nova Meta
+  const handleSaveGoal = (e: React.FormEvent) => {
+    e.preventDefault();
+    const target = parseFloat(goalTargetAmount) || 0;
+    const current = parseFloat(goalCurrentAmount) || 0;
+
+    if (!goalTitle.trim() || target <= 0) return;
+
+    const newGoal: FinancialGoal = {
+      id: 'goal_' + Date.now() + '_' + Math.random().toString(36).substring(2, 6),
+      title: goalTitle.trim(),
+      targetAmount: target,
+      currentAmount: current,
+      targetDate: goalTargetDate || new Date(Date.now() + 180 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      category: goalCategory,
+      motivation: goalMotivation.trim() || undefined,
+      status: current >= target ? 'concluida' : 'em_andamento',
+      createdAt: new Date().toISOString(),
+    };
+
+    addFinancialGoal(newGoal);
+    setIsGoalModalOpen(false);
+    setActiveTab('goals');
+
+    setGoalTitle('');
+    setGoalTargetAmount('');
+    setGoalCurrentAmount('');
+    setGoalTargetDate('');
+    setGoalMotivation('');
+  };
+
+  // Handler para Depositar/Guardar Dinheiro em uma Meta
+  const handleDepositGoal = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!depositGoal) return;
+    const val = parseFloat(depositAmount) || 0;
+    if (val <= 0) return;
+
+    addAmountToGoal(depositGoal.id, val);
+    setDepositGoal(null);
+    setDepositAmount('');
+  };
+
+  // Handler para Abrir Modal de Edição de Meta
+  const openEditGoal = (goal: FinancialGoal) => {
+    setEditingGoal(goal);
+    setEditGoalTitle(goal.title);
+    setEditGoalTarget(String(goal.targetAmount));
+    setEditGoalCurrent(String(goal.currentAmount));
+    setEditGoalDate(goal.targetDate);
+    setEditGoalCategory(goal.category);
+    setEditGoalMotivation(goal.motivation || '');
+  };
+
+  // Handler para Salvar Alterações na Meta
+  const handleSaveGoalEdit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingGoal) return;
+
+    const target = parseFloat(editGoalTarget) || editingGoal.targetAmount;
+    const current = parseFloat(editGoalCurrent) || 0;
+
+    updateFinancialGoal(editingGoal.id, {
+      title: editGoalTitle.trim() || editingGoal.title,
+      targetAmount: target,
+      currentAmount: current,
+      targetDate: editGoalDate || editingGoal.targetDate,
+      category: editGoalCategory,
+      motivation: editGoalMotivation.trim() || undefined,
+    });
+
+    setEditingGoal(null);
   };
 
   // Handler para Abrir Modal de Edição de Dívida
@@ -370,7 +513,7 @@ export function FinancialManagement() {
         </div>
       </div>
 
-      {/* ─── NAVEGAÇÃO DAS 5 ABAS ─────────────────────────────────────────────── */}
+      {/* ─── NAVEGAÇÃO DAS 6 ABAS (COM A NOVA ABA METAS DE RECOMEÇO) ──────────── */}
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-zinc-800 scrollbar-none">
         <button
           onClick={() => setActiveTab('overview')}
@@ -430,6 +573,19 @@ export function FinancialManagement() {
         >
           <CreditCard size={14} />
           DÍVIDAS / EMPRÉSTIMOS ({financialDebts.length})
+        </button>
+
+        {/* NOVA ABA: METAS */}
+        <button
+          onClick={() => setActiveTab('goals')}
+          className={`flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all whitespace-nowrap shadow-sm ${
+            activeTab === 'goals'
+              ? 'bg-gradient-to-r from-emerald-500/20 to-teal-500/20 text-emerald-300 border border-emerald-500/40 shadow-emerald-500/10'
+              : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-800/50'
+          }`}
+        >
+          <Target size={15} className="text-emerald-400" />
+          🎯 METAS ({financialGoals.length})
         </button>
       </div>
 
@@ -676,7 +832,7 @@ export function FinancialManagement() {
         </div>
       )}
 
-      {/* ABA 4: CONTAS (CARD REDESENHADO COM O VALOR DESTAQUE BEM GRANDE) */}
+      {/* ABA 4: CONTAS */}
       {activeTab === 'recurring_bills' && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -691,7 +847,6 @@ export function FinancialManagement() {
             </button>
           </div>
 
-          {/* LISTA DE CONTAS ABERTAS (PENDENTES E VENCIDAS - COM VALOR EM DESTAQUE BEM GRANDE) */}
           <div className="space-y-2">
             <h3 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">
               Contas Abertas ({openBills.length})
@@ -738,7 +893,6 @@ export function FinancialManagement() {
                     </div>
 
                     <div className="flex items-center justify-between sm:justify-end gap-3 pt-2 sm:pt-0 border-t sm:border-t-0 border-zinc-800/80">
-                      {/* VALOR DA CONTA COM DESTAQUE BEM GRANDE */}
                       <div className="text-left sm:text-right">
                         <span className="text-[10px] text-zinc-500 font-semibold uppercase tracking-wider block">Valor</span>
                         <span className={`text-lg sm:text-2xl font-extrabold tracking-tight tabular-nums ${
@@ -796,7 +950,6 @@ export function FinancialManagement() {
             </div>
           </div>
 
-          {/* 📜 MINI HISTÓRICO DE CONTAS PAGAS */}
           <div className="pt-3 border-t border-zinc-800 space-y-2">
             <button
               onClick={() => setIsPaidHistoryOpen(!isPaidHistoryOpen)}
@@ -984,6 +1137,233 @@ export function FinancialManagement() {
         </div>
       )}
 
+      {/* ─── ABA 6: 🎯 METAS DE RECOMEÇO (VIRADA DE CHAVE) ────────────────────── */}
+      {activeTab === 'goals' && (
+        <div className="space-y-4">
+          {/* Header da Aba com Mensagem Inspiradora */}
+          <div className="bg-gradient-to-r from-emerald-950/40 via-zinc-900 to-teal-950/40 p-4 sm:p-5 rounded-2xl border border-emerald-500/30 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center border border-emerald-500/30 shrink-0">
+                  <Flame size={22} className="animate-pulse" />
+                </div>
+                <div>
+                  <h2 className="text-base sm:text-lg font-extrabold text-white flex items-center gap-2">
+                    Minhas Metas de Recomeço
+                    <span className="text-[10px] bg-emerald-500/20 text-emerald-300 font-bold px-2 py-0.5 rounded-full border border-emerald-500/30">
+                      Virada de Chave 🔑
+                    </span>
+                  </h2>
+                  <p className="text-xs text-zinc-300 mt-0.5">
+                    "Cada real economizado e cada meta conquistada é um passo firme para você se reerguer e construir a vida que merece."
+                  </p>
+                </div>
+              </div>
+
+              <button
+                onClick={() => setIsGoalModalOpen(true)}
+                className="flex items-center justify-center gap-1.5 px-4 py-2 bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white rounded-xl text-xs font-bold shadow-lg shadow-emerald-500/20 shrink-0 transition-all"
+              >
+                <Plus size={15} /> Criar Nova Meta
+              </button>
+            </div>
+
+            {/* Progresso Geral de Todas as Metas */}
+            {financialGoals.length > 0 && (
+              <div className="pt-3 border-t border-zinc-800/80 grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
+                <div className="bg-zinc-900/80 p-3 rounded-xl border border-zinc-800">
+                  <span className="text-zinc-400 block text-[10px] uppercase font-semibold">Total Guardado</span>
+                  <span className="text-base font-extrabold text-emerald-400">{formatCurrency(totalGoalsSaved)}</span>
+                </div>
+                <div className="bg-zinc-900/80 p-3 rounded-xl border border-zinc-800">
+                  <span className="text-zinc-400 block text-[10px] uppercase font-semibold">Meta Total Planejada</span>
+                  <span className="text-base font-extrabold text-white">{formatCurrency(totalGoalsTarget)}</span>
+                </div>
+                <div className="bg-zinc-900/80 p-3 rounded-xl border border-zinc-800">
+                  <span className="text-zinc-400 block text-[10px] uppercase font-semibold">Progresso Geral</span>
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <div className="w-full bg-zinc-800 h-2 rounded-full overflow-hidden">
+                      <div
+                        className="bg-emerald-500 h-full rounded-full transition-all"
+                        style={{ width: `${Math.min(100, overallGoalsProgress)}%` }}
+                      />
+                    </div>
+                    <span className="font-extrabold text-emerald-400 shrink-0">
+                      {overallGoalsProgress.toFixed(0)}%
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* LISTA DE METAS */}
+          {financialGoals.length === 0 ? (
+            <div className="bg-zinc-900/90 border border-zinc-800 rounded-2xl p-6 text-center space-y-4">
+              <Target size={42} className="mx-auto text-emerald-400/60 animate-bounce" />
+              <div className="max-w-md mx-auto space-y-1">
+                <h3 className="text-sm sm:text-base font-bold text-white">Pronto para dar a virada na sua vida?</h3>
+                <p className="text-xs text-zinc-400">
+                  Defina metas claras como Reserva de Emergência, Quitar Dívidas ou Comprar Equipamentos para alavancar seu negócio!
+                </p>
+              </div>
+
+              {/* Botão de Sugestão Rápida */}
+              <div className="pt-2 flex flex-wrap justify-center gap-2">
+                <button
+                  onClick={() => {
+                    setGoalTitle('Reserva de Recomeço / Emergência');
+                    setGoalTargetAmount('1000');
+                    setGoalCurrentAmount('0');
+                    setGoalCategory('emergencia');
+                    setGoalMotivation('Garantir minha paz e segurança financeira');
+                    setIsGoalModalOpen(true);
+                  }}
+                  className="px-3 py-1.5 bg-emerald-500/10 hover:bg-emerald-500/20 text-emerald-300 border border-emerald-500/30 rounded-xl text-xs font-semibold transition-all"
+                >
+                  🛡️ Criar Reserva R$ 1.000
+                </button>
+
+                <button
+                  onClick={() => {
+                    setGoalTitle('Quitar Dívidas Cerasa / Bancos');
+                    setGoalTargetAmount('3000');
+                    setGoalCurrentAmount('0');
+                    setGoalCategory('dividas');
+                    setGoalMotivation('Limpar meu nome e viver sem cobranças');
+                    setIsGoalModalOpen(true);
+                  }}
+                  className="px-3 py-1.5 bg-amber-500/10 hover:bg-amber-500/20 text-amber-300 border border-amber-500/30 rounded-xl text-xs font-semibold transition-all"
+                >
+                  🧹 Quitar Dívidas
+                </button>
+              </div>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5">
+              {financialGoals.map((goal: FinancialGoal) => {
+                const config = GOAL_CATEGORY_CONFIG[goal.category] || GOAL_CATEGORY_CONFIG.emergencia;
+                const IconComponent = config.icon;
+                const pct = Math.min(100, Math.max(0, (goal.currentAmount / goal.targetAmount) * 100));
+                const isConcluida = goal.currentAmount >= goal.targetAmount;
+
+                return (
+                  <div
+                    key={goal.id}
+                    className={`bg-zinc-900/90 border rounded-2xl p-4 space-y-3 flex flex-col justify-between transition-all shadow-md ${
+                      isConcluida
+                        ? 'border-emerald-500/40 bg-emerald-950/20 shadow-emerald-500/10'
+                        : 'border-zinc-800 hover:border-emerald-500/30'
+                    }`}
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <span className={`inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full ${config.bg} ${config.color} border ${config.border}`}>
+                          <IconComponent size={12} />
+                          {config.label}
+                        </span>
+
+                        <div className="flex items-center gap-1">
+                          <button
+                            onClick={() => openEditGoal(goal)}
+                            className="p-1.5 text-zinc-400 hover:text-white rounded-lg hover:bg-zinc-800 transition-all"
+                            title="Editar Meta"
+                          >
+                            <Edit2 size={13} />
+                          </button>
+                          <button
+                            onClick={() => deleteFinancialGoal(goal.id)}
+                            className="p-1.5 text-zinc-500 hover:text-rose-400 rounded-lg hover:bg-rose-500/10 transition-all"
+                            title="Excluir Meta"
+                          >
+                            <Trash2 size={13} />
+                          </button>
+                        </div>
+                      </div>
+
+                      <h3 className="text-sm font-extrabold text-white tracking-tight">{goal.title}</h3>
+
+                      {goal.motivation && (
+                        <p className="text-[11px] text-emerald-300/90 italic bg-zinc-800/60 p-2 rounded-xl border border-zinc-800">
+                          "{goal.motivation}"
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="space-y-2 pt-2 border-t border-zinc-800/80">
+                      {/* Barra de Progresso */}
+                      <div className="space-y-1">
+                        <div className="flex items-center justify-between text-xs font-semibold">
+                          <span className="text-zinc-400 text-[10px] uppercase">Progresso</span>
+                          <span className={isConcluida ? 'text-emerald-400 font-bold' : 'text-zinc-200'}>
+                            {pct.toFixed(0)}%
+                          </span>
+                        </div>
+
+                        <div className="w-full bg-zinc-800 h-2.5 rounded-full overflow-hidden p-0.5 border border-zinc-700/50">
+                          <div
+                            className={`h-full rounded-full transition-all ${
+                              isConcluida ? 'bg-gradient-to-r from-emerald-500 to-teal-400' : 'bg-emerald-500'
+                            }`}
+                            style={{ width: `${pct}%` }}
+                          />
+                        </div>
+                      </div>
+
+                      {/* Valores */}
+                      <div className="flex items-center justify-between pt-1">
+                        <div>
+                          <span className="text-[10px] text-zinc-500 block uppercase font-medium">Guardado</span>
+                          <span className="text-sm font-extrabold text-emerald-400">
+                            {formatCurrency(goal.currentAmount)}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[10px] text-zinc-500 block uppercase font-medium">Alvo</span>
+                          <span className="text-sm font-bold text-white">
+                            {formatCurrency(goal.targetAmount)}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Data Alvo & Botão Guardar Dinheiro */}
+                      <div className="flex items-center justify-between gap-2 pt-2">
+                        <span className="text-[10px] text-zinc-400 flex items-center gap-1">
+                          <Calendar size={11} className="text-emerald-400" />
+                          Alvo: {formatDate(goal.targetDate)}
+                        </span>
+
+                        <button
+                          onClick={() => {
+                            setDepositGoal(goal);
+                            setDepositAmount('');
+                          }}
+                          className={`flex items-center gap-1 px-3 py-1.5 rounded-xl text-xs font-bold transition-all shadow-md ${
+                            isConcluida
+                              ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                              : 'bg-emerald-500 hover:bg-emerald-600 text-white shadow-emerald-500/20'
+                          }`}
+                        >
+                          {isConcluida ? (
+                            <>
+                              <CheckCircle2 size={13} /> CONCLUÍDA!
+                            </>
+                          ) : (
+                            <>
+                              <Plus size={13} /> Guardar +
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* ─── MODAL: NOVA TRANSAÇÃO ────────────────────────────────────────────── */}
       {isTransactionModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/70 backdrop-blur-sm">
@@ -1005,7 +1385,6 @@ export function FinancialManagement() {
             </h2>
 
             <form onSubmit={handleSaveTransaction} className="space-y-3">
-              {/* Seletor do Tipo */}
               <div className="grid grid-cols-3 gap-1 p-1 bg-zinc-800/60 rounded-xl text-center">
                 <button
                   type="button"
@@ -1047,7 +1426,6 @@ export function FinancialManagement() {
                 </button>
               </div>
 
-              {/* Título */}
               <div>
                 <label className="block text-xs font-medium text-zinc-400 mb-1">Título / Descrição</label>
                 <input
@@ -1066,7 +1444,6 @@ export function FinancialManagement() {
                 />
               </div>
 
-              {/* Valor & Categoria */}
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-xs font-medium text-zinc-400 mb-1">Valor (R$)</label>
@@ -1097,7 +1474,6 @@ export function FinancialManagement() {
                 </div>
               </div>
 
-              {/* Data de Vencimento e Status Inicial para Contas */}
               {txType === 'recurring_bill' ? (
                 <div className="grid grid-cols-2 gap-2">
                   <div>
@@ -1138,7 +1514,6 @@ export function FinancialManagement() {
                 </div>
               )}
 
-              {/* Botões */}
               <div className="flex items-center justify-end gap-2 pt-2">
                 <button
                   type="button"
@@ -1213,7 +1588,6 @@ export function FinancialManagement() {
                 />
               </div>
 
-              {/* Botões */}
               <div className="flex items-center justify-end gap-2 pt-2">
                 <button
                   type="button"
@@ -1251,7 +1625,6 @@ export function FinancialManagement() {
             </h2>
 
             <form onSubmit={handleSaveDebtEdit} className="space-y-3">
-              {/* Abater Pagamento Parcial */}
               <div className="p-3 bg-purple-950/20 border border-purple-500/30 rounded-xl space-y-2">
                 <label className="block text-xs font-bold text-purple-300">
                   ⚡ Pagamento Parcial / Abater Valor (R$)
@@ -1302,7 +1675,6 @@ export function FinancialManagement() {
                 />
               </div>
 
-              {/* Botões */}
               <div className="flex items-center justify-end gap-2 pt-2">
                 <button
                   type="button"
@@ -1314,6 +1686,288 @@ export function FinancialManagement() {
                 <button
                   type="submit"
                   className="px-4 py-2 rounded-xl text-xs font-semibold bg-purple-600 hover:bg-purple-700 text-white shadow-lg shadow-purple-600/20"
+                >
+                  Salvar Alterações
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ─── MODAL: NOVA META DE RECOMEÇO ───────────────────────────────────────── */}
+      {isGoalModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/70 backdrop-blur-sm">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl max-w-md w-full p-4 sm:p-6 space-y-4 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setIsGoalModalOpen(false)}
+              className="absolute top-4 right-4 text-zinc-400 hover:text-white"
+            >
+              <X size={18} />
+            </button>
+
+            <h2 className="text-base font-bold text-white flex items-center gap-2">
+              <Target className="text-emerald-400" size={20} />
+              Nova Meta de Recomeço / Virada de Chave
+            </h2>
+
+            <form onSubmit={handleSaveGoal} className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-1">Título da Meta</label>
+                <input
+                  type="text"
+                  required
+                  placeholder="Ex: Reserva de Emergência R$ 1.000, Moto Própria, Curso"
+                  value={goalTitle}
+                  onChange={(e) => setGoalTitle(e.target.value)}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-white focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-medium text-zinc-400 mb-1">Valor Alvo (R$)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    placeholder="1000.00"
+                    value={goalTargetAmount}
+                    onChange={(e) => setGoalTargetAmount(e.target.value)}
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-white focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-zinc-400 mb-1">Já Guardado (R$)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="0.00"
+                    value={goalCurrentAmount}
+                    onChange={(e) => setGoalCurrentAmount(e.target.value)}
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-white focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-medium text-zinc-400 mb-1">Categoria</label>
+                  <select
+                    value={goalCategory}
+                    onChange={(e) => setGoalCategory(e.target.value as GoalCategory)}
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-2 py-2 text-xs sm:text-sm text-white focus:outline-none focus:border-emerald-500"
+                  >
+                    <option value="emergencia">🛡️ Segurança / Emergência</option>
+                    <option value="dividas">🧹 Liberdade de Dívidas</option>
+                    <option value="trabalho">🚀 Crescimento / Trabalho</option>
+                    <option value="sonhos">🏠 Sonhos & Família</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-zinc-400 mb-1">Data Alvo</label>
+                  <input
+                    type="date"
+                    value={goalTargetDate}
+                    onChange={(e) => setGoalTargetDate(e.target.value)}
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-white focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-1">
+                  Sua Motivação Pessoal (Por que essa meta importa?)
+                </label>
+                <textarea
+                  rows={2}
+                  placeholder="Ex: Dar paz à minha família e mostrar que é possível vencer."
+                  value={goalMotivation}
+                  onChange={(e) => setGoalMotivation(e.target.value)}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 resize-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setIsGoalModalOpen(false)}
+                  className="px-3 py-2 rounded-xl text-xs font-medium text-zinc-400 hover:bg-zinc-800"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/20"
+                >
+                  Salvar Meta
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ─── MODAL: GUARDAR / APORTAR VALOR NA META ───────────────────────────── */}
+      {depositGoal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/70 backdrop-blur-sm">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl max-w-md w-full p-4 sm:p-6 space-y-4 shadow-2xl relative">
+            <button
+              onClick={() => setDepositGoal(null)}
+              className="absolute top-4 right-4 text-zinc-400 hover:text-white"
+            >
+              <X size={18} />
+            </button>
+
+            <h2 className="text-base font-bold text-white flex items-center gap-2">
+              <DollarSign className="text-emerald-400" size={20} />
+              Guardar Valor na Meta ({depositGoal.title})
+            </h2>
+
+            <form onSubmit={handleDepositGoal} className="space-y-3">
+              <div className="p-3 bg-emerald-950/20 border border-emerald-500/30 rounded-xl space-y-1">
+                <p className="text-xs text-zinc-300">
+                  Guardado Atual: <strong className="text-emerald-400">{formatCurrency(depositGoal.currentAmount)}</strong> de {formatCurrency(depositGoal.targetAmount)}
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-emerald-400 mb-1">
+                  Quanto você guardou hoje? (R$)
+                </label>
+                <input
+                  type="number"
+                  step="0.01"
+                  required
+                  placeholder="Ex: 50,00"
+                  value={depositAmount}
+                  onChange={(e) => setDepositAmount(e.target.value)}
+                  className="w-full bg-zinc-800 border border-emerald-500/50 rounded-xl px-3 py-2 text-sm font-bold text-white focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setDepositGoal(null)}
+                  className="px-3 py-2 rounded-xl text-xs font-medium text-zinc-400 hover:bg-zinc-800"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/20"
+                >
+                  Confirmar Aporte
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ─── MODAL: EDITAR META ────────────────────────────────────────────────── */}
+      {editingGoal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 bg-black/70 backdrop-blur-sm">
+          <div className="bg-zinc-900 border border-zinc-800 rounded-2xl max-w-md w-full p-4 sm:p-6 space-y-4 shadow-2xl relative max-h-[90vh] overflow-y-auto">
+            <button
+              onClick={() => setEditingGoal(null)}
+              className="absolute top-4 right-4 text-zinc-400 hover:text-white"
+            >
+              <X size={18} />
+            </button>
+
+            <h2 className="text-base font-bold text-white flex items-center gap-2">
+              <Edit2 className="text-emerald-400" size={18} />
+              Editar Meta ({editingGoal.title})
+            </h2>
+
+            <form onSubmit={handleSaveGoalEdit} className="space-y-3">
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-1">Título da Meta</label>
+                <input
+                  type="text"
+                  required
+                  value={editGoalTitle}
+                  onChange={(e) => setEditGoalTitle(e.target.value)}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-white focus:outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-medium text-zinc-400 mb-1">Valor Alvo (R$)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    required
+                    value={editGoalTarget}
+                    onChange={(e) => setEditGoalTarget(e.target.value)}
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-white focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-zinc-400 mb-1">Valor Atual Guardado (R$)</label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    value={editGoalCurrent}
+                    onChange={(e) => setEditGoalCurrent(e.target.value)}
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-white focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <div>
+                  <label className="block text-xs font-medium text-zinc-400 mb-1">Categoria</label>
+                  <select
+                    value={editGoalCategory}
+                    onChange={(e) => setEditGoalCategory(e.target.value as GoalCategory)}
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-2 py-2 text-xs sm:text-sm text-white focus:outline-none focus:border-emerald-500"
+                  >
+                    <option value="emergencia">🛡️ Segurança / Emergência</option>
+                    <option value="dividas">🧹 Liberdade de Dívidas</option>
+                    <option value="trabalho">🚀 Crescimento / Trabalho</option>
+                    <option value="sonhos">🏠 Sonhos & Família</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-zinc-400 mb-1">Data Alvo</label>
+                  <input
+                    type="date"
+                    value={editGoalDate}
+                    onChange={(e) => setEditGoalDate(e.target.value)}
+                    className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-xs sm:text-sm text-white focus:outline-none focus:border-emerald-500"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-zinc-400 mb-1">Sua Motivação</label>
+                <textarea
+                  rows={2}
+                  value={editGoalMotivation}
+                  onChange={(e) => setEditGoalMotivation(e.target.value)}
+                  className="w-full bg-zinc-800 border border-zinc-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-emerald-500 resize-none"
+                />
+              </div>
+
+              <div className="flex items-center justify-end gap-2 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setEditingGoal(null)}
+                  className="px-3 py-2 rounded-xl text-xs font-medium text-zinc-400 hover:bg-zinc-800"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  className="px-4 py-2 rounded-xl text-xs font-semibold bg-emerald-500 hover:bg-emerald-600 text-white shadow-lg shadow-emerald-500/20"
                 >
                   Salvar Alterações
                 </button>

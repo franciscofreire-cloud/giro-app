@@ -211,5 +211,16 @@ export const FINANCIAL_CATEGORY_LABELS: Record<string, string> = {
   emprestimo_parcela: 'Parcela de Empréstimo',
   outros: 'Outros',
 };
+export type GoalCategory = 'emergencia' | 'dividas' | 'trabalho' | 'sonhos';
 
-
+export interface FinancialGoal {
+  id: string;
+  title: string;              // Ex: Reserva de Emergência (Recomeço)
+  targetAmount: number;       // Meta Total (R$)
+  currentAmount: number;      // Valor Guardado (R$)
+  targetDate: string;         // YYYY-MM-DD
+  category: GoalCategory;     // Categoria da Meta
+  motivation?: string;        // Frase ou motivo pessoal para se reerguer
+  status: 'em_andamento' | 'concluida';
+  createdAt: string;
+}

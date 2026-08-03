@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { Item, Sale, AppSettings, User, UserSession, InstallmentPurchase, FinancialTransaction, FinancialDebt } from '@/types';
+import { Item, Sale, AppSettings, User, UserSession, InstallmentPurchase, FinancialTransaction, FinancialDebt, FinancialGoal } from '@/types';
 import { createClient } from '@supabase/supabase-js';
 import { hashSHA256 } from '@/lib/utils';
 
@@ -20,6 +20,7 @@ interface StoreState {
   // Financial Management State
   financialTransactions: FinancialTransaction[];
   financialDebts: FinancialDebt[];
+  financialGoals: FinancialGoal[];
 
   // Lifecycle
   loadData: () => Promise<void>;
@@ -46,6 +47,12 @@ interface StoreState {
   clearAllDebts: () => Promise<void>;
   clearPendingDebts: () => Promise<void>;
   toggleDebtParcelPayment: (debtId: string, parcelId: string) => Promise<void>;
+
+  // Goals actions
+  addFinancialGoal: (goal: FinancialGoal) => Promise<void>;
+  updateFinancialGoal: (id: string, patch: Partial<FinancialGoal>) => Promise<void>;
+  addAmountToGoal: (id: string, amount: number) => Promise<void>;
+  deleteFinancialGoal: (id: string) => Promise<void>;
 
   // Item actions
   addItem: (item: Item) => Promise<void>;
@@ -99,6 +106,7 @@ export const useStore = create<StoreState>()((set, get) => ({
   installmentPurchases: [],
   financialTransactions: [],
   financialDebts: [],
+  financialGoals: [],
 
   loadData: async () => {
     if (!supabase) {
@@ -130,6 +138,7 @@ export const useStore = create<StoreState>()((set, get) => ({
       let installmentPurchases: InstallmentPurchase[] = [];
       let financialTransactions: FinancialTransaction[] = [];
       let financialDebts: FinancialDebt[] = [];
+      let financialGoals: FinancialGoal[] = [];
 
       if (settingsRes.data) {
         settingsRes.data.forEach((row: any) => {
@@ -158,6 +167,14 @@ export const useStore = create<StoreState>()((set, get) => ({
               financialDebts = JSON.parse(row.value);
             } catch (e) {
               console.error('Erro ao ler dívidas/empréstimos:', e);
+            }
+          }
+
+          if (row.key === 'financial_goals') {
+            try {
+              financialGoals = JSON.parse(row.value);
+            } catch (e) {
+              console.error('Erro ao ler metas financeiras:', e);
             }
           }
 
@@ -250,6 +267,7 @@ export const useStore = create<StoreState>()((set, get) => ({
         installmentPurchases,
         financialTransactions,
         financialDebts,
+        financialGoals,
         loading: false,
       });
       console.log('✅ Dados carregados com sucesso do Supabase!');
@@ -835,6 +853,85 @@ export const useStore = create<StoreState>()((set, get) => ({
     } catch (e) {
       console.error('Erro ao atualizar parcela do empréstimo:', e);
       set({ financialDebts: previous, financialTransactions: previousTransactions });
+    }
+  },
+
+  // ─── GOALS ACTIONS ───────────────────────────────────────────────────────────────
+  addFinancialGoal: async (goal) => {
+    const previous = get().financialGoals;
+    const updated = [goal, ...previous];
+    set({ financialGoals: updated });
+    try {
+      if (supabase) {
+        await supabase.from('settings').upsert({
+          key: 'financial_goals',
+          value: JSON.stringify(updated),
+        });
+      }
+    } catch (e) {
+      console.error('Erro ao salvar meta:', e);
+      set({ financialGoals: previous });
+    }
+  },
+
+  updateFinancialGoal: async (id, patch) => {
+    const previous = get().financialGoals;
+    const updated: FinancialGoal[] = previous.map((g) => {
+      if (g.id !== id) return g;
+      const merged = { ...g, ...patch };
+      const status: 'em_andamento' | 'concluida' = merged.currentAmount >= merged.targetAmount ? 'concluida' : 'em_andamento';
+      return { ...merged, status };
+    });
+    set({ financialGoals: updated });
+    try {
+      if (supabase) {
+        await supabase.from('settings').upsert({
+          key: 'financial_goals',
+          value: JSON.stringify(updated),
+        });
+      }
+    } catch (e) {
+      console.error('Erro ao atualizar meta:', e);
+      set({ financialGoals: previous });
+    }
+  },
+
+  addAmountToGoal: async (id, amount) => {
+    const previous = get().financialGoals;
+    const updated: FinancialGoal[] = previous.map((g) => {
+      if (g.id !== id) return g;
+      const newCurrent = Math.max(0, g.currentAmount + amount);
+      const newStatus: 'em_andamento' | 'concluida' = newCurrent >= g.targetAmount ? 'concluida' : 'em_andamento';
+      return { ...g, currentAmount: newCurrent, status: newStatus };
+    });
+    set({ financialGoals: updated });
+    try {
+      if (supabase) {
+        await supabase.from('settings').upsert({
+          key: 'financial_goals',
+          value: JSON.stringify(updated),
+        });
+      }
+    } catch (e) {
+      console.error('Erro ao adicionar valor à meta:', e);
+      set({ financialGoals: previous });
+    }
+  },
+
+  deleteFinancialGoal: async (id) => {
+    const previous = get().financialGoals;
+    const updated = previous.filter((g) => g.id !== id);
+    set({ financialGoals: updated });
+    try {
+      if (supabase) {
+        await supabase.from('settings').upsert({
+          key: 'financial_goals',
+          value: JSON.stringify(updated),
+        });
+      }
+    } catch (e) {
+      console.error('Erro ao deletar meta:', e);
+      set({ financialGoals: previous });
     }
   },
 }));
