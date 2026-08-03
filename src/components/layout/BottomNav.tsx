@@ -1,5 +1,5 @@
 import { NavLink, useLocation } from 'react-router-dom';
-import { Home, Package, ShoppingBag, BarChart2, CreditCard, User, Wallet, Zap } from 'lucide-react';
+import { Home, Package, ShoppingBag, BarChart2, CreditCard, User, Wallet, Target, Zap } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useStore } from '@/store/useStore';
 
@@ -12,14 +12,16 @@ const desktopTabs = [
   { to: '/relatorios', label: 'Relatórios', icon: BarChart2 },
   { to: '/perfil', label: 'Perfil', icon: User },
   { to: '/financeiro', label: 'Financeiro', icon: Wallet },
+  { to: '/metas', label: 'Metas', icon: Target },
 ];
 
-// Abas exclusivas do Rodapé Mobile (BottomNav)
+// Abas do Rodapé Mobile (BottomNav) - Aba Metas logo após Financeiro
 const mobileTabs = [
   { to: '/', label: 'Início', icon: Home },
   { to: '/vendas', label: 'Vendas', icon: ShoppingBag },
   { to: '/perfil', label: 'Perfil', icon: User },
   { to: '/financeiro', label: 'Financeiro', icon: Wallet },
+  { to: '/metas', label: 'Metas', icon: Target },
 ];
 
 // ─── Sidebar (Desktop) ────────────────────────────────────────────────────────
@@ -52,7 +54,7 @@ export function SideNav() {
               className={cn(
                 'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150',
                 active
-                  ? 'bg-emerald-500/15 text-emerald-400'
+                  ? 'bg-emerald-500/15 text-emerald-400 font-semibold'
                   : 'text-zinc-400 hover:bg-zinc-800 hover:text-zinc-200'
               )}
             >
@@ -90,7 +92,7 @@ export function BottomNav() {
               key={to}
               to={to}
               className={cn(
-                'flex flex-col items-center justify-center gap-1 px-2 py-2.5 flex-1 transition-all duration-200',
+                'flex flex-col items-center justify-center gap-1 px-1.5 py-2.5 flex-1 transition-all duration-200',
                 active ? 'text-emerald-400 font-semibold' : 'text-zinc-500 hover:text-zinc-300'
               )}
             >
@@ -113,4 +115,3 @@ export function BottomNav() {
     </nav>
   );
 }
-

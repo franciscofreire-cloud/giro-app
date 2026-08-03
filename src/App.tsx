@@ -11,6 +11,7 @@ import { Reports } from '@/pages/Reports';
 import { Profile } from '@/pages/Profile';
 import { Installments } from '@/pages/Installments';
 import { FinancialManagement } from '@/pages/FinancialManagement';
+import { GoalsManagement } from '@/pages/GoalsManagement';
 import { useStore } from '@/store/useStore';
 import { Loader2 } from 'lucide-react';
 import { Login } from '@/pages/Login';
@@ -64,6 +65,7 @@ export default function App() {
                 <Route path="/relatorios" element={<Reports />} />
                 <Route path="/perfil" element={<Profile />} />
                 <Route path="/financeiro" element={<FinancialManagement />} />
+                <Route path="/metas" element={<GoalsManagement />} />
                 <Route path="*" element={<Navigate to="/" replace />} />
               </Routes>
             </div>
